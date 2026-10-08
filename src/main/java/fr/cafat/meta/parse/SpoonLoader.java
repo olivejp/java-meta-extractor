@@ -33,7 +33,24 @@ public final class SpoonLoader {
     void translate(Factory factory, List<Path> ktFiles);
   }
 
+  /**
+   * Niveau de langage le plus récent connu de JDT : une syntaxe récente (variables anonymes
+   * {@code _} de Java 22…) reste lisible, et l'ancien code s'analyse aussi bien.
+   */
+  static final int JAVA_LEVEL = latestJavaLevel();
+
+  private static final int MIN_JAVA_LEVEL = 21;
+
   private SpoonLoader() {
+  }
+
+  private static int latestJavaLevel() {
+    try {
+      String v = org.eclipse.jdt.internal.compiler.impl.CompilerOptions.getLatestVersion();
+      return Math.max(MIN_JAVA_LEVEL, Integer.parseInt(v.startsWith("1.") ? v.substring(2) : v));
+    } catch (RuntimeException | LinkageError e) {
+      return MIN_JAVA_LEVEL;
+    }
   }
 
   public static CtModel load(List<Path> javaFiles, List<Path> ktFiles, KotlinStep kotlin,
@@ -43,7 +60,7 @@ public final class SpoonLoader {
     env.setNoClasspath(true);
     env.setAutoImports(false);
     env.setCommentEnabled(true);
-    env.setComplianceLevel(21);
+    env.setComplianceLevel(JAVA_LEVEL);
     env.setIgnoreDuplicateDeclarations(true);
     env.setIgnoreSyntaxErrors(true);
     env.setShouldCompile(false);

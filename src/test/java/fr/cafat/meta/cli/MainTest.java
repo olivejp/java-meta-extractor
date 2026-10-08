@@ -218,6 +218,41 @@ class MainTest {
   }
 
   @Test
+  void syntaxeJavaRecente(@TempDir Path repo, @TempDir Path out) throws IOException {
+    Files.writeString(repo.resolve("pom.xml"), """
+        <project><modelVersion>4.0.0</modelVersion><groupId>x</groupId><artifactId>recent</artifactId>
+        <version>1</version><build><plugins><plugin><groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build></project>
+        """);
+    Path src = Files.createDirectories(repo.resolve("src/main/java/x"));
+    // Variables anonymes « _ » (Java 22) dans des lambdas, un motif et un catch.
+    Files.writeString(src.resolve("RecentController.java"), """
+        package x;
+        import org.springframework.web.bind.annotation.*;
+        @RestController
+        @RequestMapping("/api/recent")
+        public class RecentController {
+          sealed interface Forme permits Rond, Carre { }
+          record Rond(double r) implements Forme { }
+          record Carre(double c) implements Forme { }
+          @GetMapping("/{id}")
+          public String lire(@PathVariable String id, Object o) {
+            java.util.function.BiFunction<String, String, String> f = (a, _) -> a;
+            if (o instanceof Rond(var _)) { return "rond"; }
+            try { return f.apply(id, null); } catch (RuntimeException _) { return null; }
+          }
+        }
+        """);
+    Run r = run("--repo", repo.toString(), "--out", out.toString(), "--app-name", "recent");
+    assertThat(r.exit()).as(r.err()).isZero();
+    JsonNode tree = CanonicalJson.mapper().readTree(r.files().get("recent.json"));
+    List<String> codes = new ArrayList<>();
+    tree.get("diagnostics").forEach(d -> codes.add(d.get("code").asText()));
+    assertThat(codes).doesNotContain("PARSE_ERROR");
+    assertThat(tree.get("endpoints").get(0).get("id").asText()).isEqualTo("recent:GET:/api/recent/{id}");
+  }
+
+  @Test
   void nomsDeFichiers() {
     assertThat(Main.fileName("s-gen-gpp")).isEqualTo("s-gen-gpp");
     assertThat(Main.fileName("a/b c")).isEqualTo("a_b_c");
