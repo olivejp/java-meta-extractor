@@ -121,7 +121,8 @@ public final class Pipeline {
       scanner.files(ms, ".yml", ".yaml", ".properties").stream()
           .filter(ConfigLoader::isConfigFile).forEach(configFiles::add);
     }
-    Config config = new ConfigLoader(diags, scanner::relative).load(configFiles, options.profiles());
+    Config config = new ConfigLoader(diags, scanner::relative,
+        (f, text) -> scanner.moduleOf(f).filtering().apply(f, text)).load(configFiles, options.profiles());
     List<Path> resources = scanner.files(unit.modules(), ".xml");
     List<PersistenceUnit> pus = new ArrayList<>();
     for (Path f : resources) {

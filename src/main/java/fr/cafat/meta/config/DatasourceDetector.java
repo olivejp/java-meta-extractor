@@ -82,8 +82,10 @@ public final class DatasourceDetector {
       ConfigEntry jndiEntry = jndiByPrefix.get(prefix);
       String url = urlEntry == null ? null : Secrets.sanitizeUrl(config.resolve(urlEntry.value()).value());
       String jndi = jndiEntry == null ? null : config.resolve(jndiEntry.value()).value();
+      String jpa = jpaPrefix(prefix);
       String schema = config.first(prefix + ".schema", prefix + ".default-schema",
-          prefix + ".hikari.schema", prefix + ".jpa.properties.hibernate.default_schema");
+          prefix + ".hikari.schema", prefix + ".jpa.properties.hibernate.default_schema",
+          jpa + ".properties.hibernate.default_schema");
       if (schema == null && prefix.equals("spring.datasource")) {
         schema = config.first("spring.jpa.properties.hibernate.default_schema");
       }
@@ -91,7 +93,9 @@ public final class DatasourceDetector {
         schema = schemaFromUrl(url);
       }
       ConfigEntry src = urlEntry != null ? urlEntry : jndiEntry;
-      out.add(new Detected(new Datasource(id, kindOf(url, null), url, jndi, schema, prefix,
+      String driver = config.first(prefix + ".driver-class-name", prefix + ".hikari.driver-class-name",
+          jpa + ".database-platform", jpa + ".properties.hibernate.dialect");
+      out.add(new Detected(new Datasource(id, kindOf(url, driver), url, jndi, schema, prefix,
           new Source(null, src.file(), src.line())), prefix, null));
     }
     for (PersistenceUnit pu : units) {
@@ -131,6 +135,18 @@ public final class DatasourceDetector {
     return false;
   }
 
+  /**
+   * Préfixe JPA voisin de la source : {@code spring.jpa} pour {@code spring.datasource},
+   * {@code spring.x.jpa} pour {@code spring.x.datasource}, {@code x.jpa} pour {@code x}.
+   */
+  static String jpaPrefix(String prefix) {
+    if (prefix.equals("spring.datasource")) {
+      return "spring.jpa";
+    }
+    int dot = prefix.lastIndexOf('.');
+    return (dot < 0 ? prefix : prefix.substring(0, dot)) + ".jpa";
+  }
+
   /** Dernier segment significatif du préfixe ; {@code spring.datasource} → {@code default}. */
   static String idFor(String prefix) {
     if (prefix.equals("spring.datasource")) {
@@ -145,7 +161,11 @@ public final class DatasourceDetector {
     return prefix;
   }
 
-  /** postgresql, db2 (jdbc:db2, jdbc:as400), other ; null si rien ne permet de le dire. */
+  /**
+   * postgresql, db2 (jdbc:db2, jdbc:as400), other ; null si rien ne permet de le dire.
+   *
+   * @param dialect dialecte Hibernate ou classe du pilote JDBC, en repli de l'URL
+   */
   public static String kindOf(String url, String dialect) {
     if (url != null) {
       String u = url.toLowerCase(Locale.ROOT);
@@ -164,7 +184,7 @@ public final class DatasourceDetector {
       if (d.contains("postgres")) {
         return "postgresql";
       }
-      if (d.contains("db2")) {
+      if (d.contains("db2") || d.contains("as400")) {
         return "db2";
       }
       return "other";

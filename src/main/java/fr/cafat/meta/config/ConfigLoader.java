@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -25,10 +26,21 @@ public final class ConfigLoader {
 
   private final Diagnostics diagnostics;
   private final Function<Path, String> relative;
+  private final BiFunction<Path, String, String> buildFilter;
 
   public ConfigLoader(Diagnostics diagnostics, Function<Path, String> relative) {
+    this(diagnostics, relative, (file, text) -> text);
+  }
+
+  /**
+   * @param buildFilter texte du fichier après le filtrage des ressources par le build
+   *     ({@code @artifactId@}…), tel que Spring le lit dans le jar
+   */
+  public ConfigLoader(Diagnostics diagnostics, Function<Path, String> relative,
+      BiFunction<Path, String, String> buildFilter) {
     this.diagnostics = diagnostics;
     this.relative = relative;
+    this.buildFilter = buildFilter;
   }
 
   /** Fichiers de configuration candidats (application*, bootstrap*). */
@@ -115,7 +127,7 @@ public final class ConfigLoader {
   private List<List<ConfigEntry>> read(Path f) {
     String rel = relative.apply(f);
     try {
-      String text = decode(Files.readAllBytes(f));
+      String text = buildFilter.apply(f, decode(Files.readAllBytes(f)));
       String name = f.getFileName().toString().toLowerCase(Locale.ROOT);
       return name.endsWith(".properties") ? PropertiesParser.parse(text, rel) : YamlFlattener.parse(text, rel);
     } catch (IOException | RuntimeException e) {

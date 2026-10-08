@@ -45,6 +45,8 @@ public final class SqlAnalyzer {
   private static final String IDENT = "[A-Za-z_$#@][\\w$#@]*";
   private static final Pattern SYSTEM_NAMING = Pattern.compile("(?<![\\w$#@.])(" + IDENT + ")/(" + IDENT + ")");
   private static final Pattern MYBATIS_PARAM = Pattern.compile("[#$]\\{[^}]*}");
+  private static final Pattern HIBERNATE_QUALIFIER = Pattern.compile("\\{h-(?:schema|catalog|domain)}");
+  private static final Pattern HIBERNATE_ALIAS = Pattern.compile("\\{(" + IDENT + "(?:\\." + IDENT + ")*\\.\\*)}");
   private static final Set<String> TABLE_KEYWORDS = Set.of("FROM", "JOIN", "INTO", "UPDATE", "TABLE", "USING");
   private static final Set<String> NOT_TABLES = Set.of("SELECT", "SET", "OF", "NOWAIT", "SKIP", "WAIT", "LATERAL",
       "ONLY", "WHERE", "VALUES", "AS", "ON", "IF", "EXISTS", "NOT", "DUAL", "LOCKED", "UNNEST", "DEFAULT");
@@ -88,8 +90,17 @@ public final class SqlAnalyzer {
     return MYBATIS_PARAM.matcher(sql).replaceAll("?");
   }
 
+  /**
+   * Retire les marqueurs que Hibernate remplace dans une requête native : {@code {h-schema}} (schéma
+   * par défaut, appliqué ensuite à la table) et {@code {alias.*}}.
+   */
+  static String withoutHibernatePlaceholders(String sql) {
+    String out = HIBERNATE_QUALIFIER.matcher(sql).replaceAll("");
+    return HIBERNATE_ALIAS.matcher(out).replaceAll("$1");
+  }
+
   public static Analysis analyze(String sql) {
-    String text = systemNaming(sql);
+    String text = systemNaming(withoutHibernatePlaceholders(sql));
     try {
       Statements statements = parse(text);
       Map<String, SqlTable> out = new LinkedHashMap<>();

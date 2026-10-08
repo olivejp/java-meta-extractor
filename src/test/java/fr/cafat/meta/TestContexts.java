@@ -71,7 +71,8 @@ public final class TestContexts {
     List<Path> java = scanner.files(scanner.modules(), ".java");
     List<Path> configFiles = scanner.files(scanner.modules(), ".yml", ".yaml", ".properties").stream()
         .filter(ConfigLoader::isConfigFile).toList();
-    Config config = new ConfigLoader(diags, scanner::relative).load(configFiles, profiles);
+    Config config = new ConfigLoader(diags, scanner::relative,
+        (f, text) -> scanner.moduleOf(f).filtering().apply(f, text)).load(configFiles, profiles);
     List<Path> xml = scanner.files(scanner.modules(), ".xml");
     List<PersistenceUnit> units = new ArrayList<>();
     for (Path f : xml) {
@@ -88,7 +89,8 @@ public final class TestContexts {
     for (RepoScanner.DeployableUnit unit : scanner.deployableUnits()) {
       List<Path> configFiles = scanner.files(unit.modules(), ".yml", ".yaml", ".properties").stream()
           .filter(ConfigLoader::isConfigFile).toList();
-      Config config = new ConfigLoader(diags, scanner::relative).load(configFiles, List.of());
+      Config config = new ConfigLoader(diags, scanner::relative,
+          (f, text) -> scanner.moduleOf(f).filtering().apply(f, text)).load(configFiles, List.of());
       out.addAll(WebModules.detect(unit, config, diags, scanner::relative));
     }
     return out;

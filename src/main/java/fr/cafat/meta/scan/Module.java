@@ -13,6 +13,7 @@ import java.util.List;
  * @param dependencies clés des dépendances déclarées (internes ou externes)
  * @param children sous-modules déclarés
  * @param springBootPlugin plugin Spring Boot déclaré dans le build
+ * @param filtering filtrage des ressources au build (Maven), sinon {@link ResourceFiltering#NONE}
  */
 public record Module(
     String key,
@@ -25,5 +26,6 @@ public record Module(
     List<String> dependencies,
     List<String> children,
     boolean springBootPlugin,
-    String buildFile) {
+    String buildFile,
+    ResourceFiltering filtering) {
 }

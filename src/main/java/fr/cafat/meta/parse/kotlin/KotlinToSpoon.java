@@ -137,6 +137,12 @@ public final class KotlinToSpoon {
   /** Classes de fichier ({@code FooKt}) par paquet, pour les fonctions et propriétés de premier niveau. */
   private final Map<String, List<CtClass<?>>> fileClasses = new TreeMap<>();
   private final Map<CtType<?>, CtConstructor<?>> primaryCtors = new IdentityHashMap<>();
+  /** {@code typealias} sans paramètre de type, par nom qualifié : fichier et déclaration. */
+  private final Map<String, Alias> aliases = new HashMap<>();
+  private final Set<String> resolvingAliases = new HashSet<>();
+
+  private record Alias(FileUnit u, KtTypeAlias declaration) {
+  }
 
   public KotlinToSpoon(Factory factory, Path repoRoot, Diagnostics diagnostics) {
     this.factory = factory;
@@ -388,6 +394,9 @@ public final class KotlinToSpoon {
         if (firstTopLevel == null) {
           firstTopLevel = d;
         }
+      } else if (d instanceof KtTypeAlias ta && ta.getName() != null && ta.getTypeParameters().isEmpty()
+          && ta.getTypeReference() != null) {
+        aliases.put(qualify(u.pkg, ta.getName()), new Alias(u, ta));
       } else if (!(d instanceof KtScript)) {
         info(u, d, null, "Déclaration Kotlin de premier niveau non traduite : " + kindOf(d));
       }
@@ -1211,6 +1220,10 @@ public final class KotlinToSpoon {
       if (mt != null) {
         return mt.getReference();
       }
+      CtTypeReference<?> aliased = aliasTarget(imp);
+      if (aliased != null) {
+        return aliased;
+      }
       if (typePosition || isUpper(name)) {
         return fqnType(imp);
       }
@@ -1218,6 +1231,10 @@ public final class KotlinToSpoon {
     CtType<?> same = modelTypeExact(qualify(ctx.u.pkg, name));
     if (same != null) {
       return same.getReference();
+    }
+    CtTypeReference<?> sameAlias = aliasTarget(qualify(ctx.u.pkg, name));
+    if (sameAlias != null) {
+      return sameAlias;
     }
     String def = DEFAULT_TYPES.get(name);
     if (def != null) {
@@ -1230,6 +1247,19 @@ public final class KotlinToSpoon {
       }
     }
     return null;
+  }
+
+  /** Type désigné par un {@code typealias}, résolu dans le fichier qui le déclare ; null sinon. */
+  private CtTypeReference<?> aliasTarget(String qualifiedName) {
+    Alias alias = aliases.get(qualifiedName);
+    if (alias == null || !resolvingAliases.add(qualifiedName)) {
+      return null;
+    }
+    try {
+      return resolveType(alias.declaration().getTypeReference(), new Ctx(alias.u(), null, true));
+    } finally {
+      resolvingAliases.remove(qualifiedName);
+    }
   }
 
   private CtTypeReference<?> resolveSimpleType(String name, Ctx ctx) {

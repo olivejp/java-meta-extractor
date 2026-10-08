@@ -58,7 +58,7 @@ import spoon.reflect.visitor.filter.TypeFilter;
  */
 public final class ValueEval {
 
-  private static final int MAX_DEPTH = 16;
+  private static final int MAX_DEPTH = 32;
   private static final Pattern FORMAT = Pattern.compile("%(\\d+\\$)?[-#+ 0,(<]*\\d*(\\.\\d+)?([a-zA-Z%])");
   private static final Set<String> IDENTITY_METHODS = Set.of("trim", "strip", "intern", "toString",
       "stripIndent", "trimIndent", "trimMargin", "build", "encode", "toUri", "toUriString",
@@ -96,6 +96,12 @@ public final class ValueEval {
 
   public PartialString eval(CtExpression<?> e) {
     return eval(e, new Ctx(0, Map.of(), identitySet()));
+  }
+
+  /** Évalue avec des paramètres liés, par exemple aux valeurs d'un site d'appel. */
+  public PartialString eval(CtExpression<?> e, Map<CtParameter<?>, PartialString> bindings) {
+    Map<CtParameter<?>, PartialString> b = new IdentityHashMap<>(bindings);
+    return eval(e, new Ctx(0, b, identitySet()));
   }
 
   /** Évalue chaque élément d'un tableau (ou l'expression seule). */
@@ -622,6 +628,10 @@ public final class ValueEval {
   private static boolean isUriBuilderChain(CtExpression<?> e) {
     CtExpression<?> t = e;
     while (t instanceof CtInvocation<?> i) {
+      if (isUriType(Types.typeOf(i))) {
+        // méthode (du dépôt ou non) qui renvoie un constructeur d'URI
+        return true;
+      }
       if (i.getTarget() instanceof CtTypeAccess<?> ta && ta.getAccessedType() != null) {
         String n = ta.getAccessedType().getSimpleName();
         return n.endsWith("UriComponentsBuilder") || n.equals("UriBuilder") || n.equals("URI");
@@ -633,13 +643,23 @@ public final class ValueEval {
         || type.getSimpleName().equals("WebTarget"));
   }
 
+  private static boolean isUriType(CtTypeReference<?> type) {
+    if (type == null) {
+      return false;
+    }
+    String n = type.getSimpleName();
+    return n.endsWith("UriComponentsBuilder") || n.equals("UriBuilder") || n.equals("UriComponents")
+        || n.equals("URI");
+  }
+
   private PartialString placeholder(List<CtExpression<?>> args, Ctx ctx) {
-    String key = constant(args.get(0));
+    // clé calculée dans une méthode du dépôt : PREFIXE + serviceName + ".service"
+    String key = eval(args.get(0), ctx.deeper()).valueOrNull();
     if (key == null) {
       return PartialString.unknown("property").markDynamic();
     }
     if (args.size() >= 2) {
-      String def = constant(args.get(1));
+      String def = eval(args.get(1), ctx.deeper()).valueOrNull();
       if (def != null) {
         return PartialString.lit("${" + key + ":" + def + "}");
       }
@@ -647,11 +667,20 @@ public final class ValueEval {
     return PartialString.lit("${" + key + "}");
   }
 
-  /** String.format / formatted : %s, %d… remplacés par les arguments, %% et %n gérés. */
+  /**
+   * String.format / formatted : %s, %d… remplacés par les arguments, %% et %n gérés. Un format lu
+   * dans la configuration ({@code ${cle}}) est rendu tel quel : ses %s ne sont connus qu'après
+   * résolution.
+   */
   private PartialString format(CtExpression<?> fmtExpr, List<CtExpression<?>> args, Ctx ctx) {
-    String fmt = constant(fmtExpr);
+    PartialString evaluated = eval(fmtExpr, ctx.deeper());
+    String fmt = evaluated.valueOrNull();
     if (fmt == null) {
-      return PartialString.unknown("format").markDynamic();
+      // format en partie inconnu : ce qui est connu est gardé, les %s restent à leur place
+      return evaluated.isEmpty() ? PartialString.unknown("format").markDynamic() : evaluated.markDynamic();
+    }
+    if (fmt.contains("${") && !FORMAT.matcher(fmt.replaceAll("\\$\\{[^}]*}", "")).find()) {
+      return evaluated;
     }
     List<CtExpression<?>> effective = args;
     if (args.size() == 1 && args.get(0) instanceof CtNewArray<?> arr) {

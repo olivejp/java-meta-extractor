@@ -77,6 +77,8 @@ Deux unités qui portent le même nom reçoivent le suffixe `-<artifactId>`.
 
 Le code sous `src/test` (et `src/<autre que main>`) n'est jamais lu.
 
+Les fichiers `application*`/`bootstrap*` sont lus tels que Maven les place dans le jar : les ressources filtrées (`<filtering>true</filtering>`, ou les `application*` sous `spring-boot-starter-parent`) voient leurs jetons remplacés par les propriétés du pom, `project.*` (aussi sans préfixe : `@artifactId@`) et `parsedVersion.*` si `build-helper:parse-version` est déclaré. Sous le parent Spring Boot, seul `@cle@` est filtré ; sinon `${cle}` l'est aussi. Un jeton inconnu reste tel quel, comme dans Maven. `basedir` et les chemins absolus ne sont jamais substitués.
+
 ## Contrat JSON
 
 Le schéma JSON Schema 2020-12 est dans [`schema/meta-extract.schema.json`](schema/meta-extract.schema.json). Il est embarqué dans le JAR et valide chaque sortie avant écriture.
@@ -138,6 +140,13 @@ Les fichiers de référence des fixtures sont dans `src/test/resources/golden/`.
   5. bean de même nom que le champ ;
   6. bean `@Primary` ou unique de la famille (JdbcTemplate, NamedParameterJdbcTemplate, EntityManagerFactory, MyBatis) ;
   7. DataSource `@Primary` ou unique si la famille n'a aucun bean déclaré (auto-configuration Spring Boot).
+- **Type de base** : lu dans l'URL JDBC, sinon dans le pilote (`driver-class-name`) ou le dialecte (`database-platform`, `hibernate.dialect`) de la source ou de son préfixe JPA voisin (`spring.x.jpa` pour `spring.x.datasource`).
+- **SQL natif** : `{h-schema}`, `{h-catalog}` et `{alias.*}` sont retirés avant l'analyse ; la table reçoit ensuite le schéma par défaut.
+- **Destination JMS injectée** (`Queue`, `Topic`, `Destination`) : bean `@Bean` désigné par `@Qualifier`, sinon du nom du champ, sinon seul bean de type compatible.
+- **URL d'appel** :
+  - les méthodes du dépôt sont dépliées avec leurs arguments, y compris les clés calculées de `Environment.getProperty` (`PREFIXE + service + ".path." + nom`) ;
+  - un format lu dans la configuration puis passé à `String.format` garde ses `%s`/`%d`, qui deviennent `{arg1}`, `{arg2}`… après résolution ;
+  - une URL reçue en paramètre est évaluée à chaque site d'appel de la méthode : un appel par site, attribué à l'appelant.
 - **Schéma par défaut** : celui de la source de données (`currentSchema` PostgreSQL, première bibliothèque DB2 `libraries=`, `hibernate.default_schema`). Il s'applique aux tables sans schéma : entités, tables secondaires, tables de jointure et SQL.
 - **`is_view`** vaut `true` dans trois cas :
   - schéma de vues (`--view-schemas`) ;
@@ -196,10 +205,12 @@ La suite comprend :
 - **JPA** : la clé étrangère d'un embeddable n'est pas relevée.
 - **Endpoints et appels** :
   - le `contextRoot` d'un EAR n'est lu que dans `application.xml` et `jboss-web.xml` ;
-  - les appels JAX-RS en `.target()` dynamique restent partiels.
+  - les appels JAX-RS en `.target()` dynamique restent partiels ;
+  - l'application cible n'est déduite que de l'hôte : un appel via une passerelle d'API garde `?` ;
+  - une valeur sensible par son nom de clé reste masquée même dans une URL (`path.check-password` → `***`).
 - **JMS** : les destinations déclarées dans un XML Spring et les annotations JMS au niveau de la classe ne sont pas lues.
 - **Kotlin** : les sources sont traduites dans le modèle Spoon sans résolution sémantique.
   - Un membre hérité d'un type absent du dépôt reste de type `Object`.
   - Les surcharges sont choisies selon le nombre d'arguments seulement.
   - Les annotations d'une propriété du constructeur vont toutes sur le champ, quelle que soit la cible (`@get:`, `@param:`…).
-  - Les objets anonymes, les références `::f`, les classes locales et les typealias ne sont pas traduits.
+  - Les objets anonymes, les références `::f`, les classes locales et les typealias génériques ne sont pas traduits. Un typealias sans paramètre de type est remplacé par sa cible.

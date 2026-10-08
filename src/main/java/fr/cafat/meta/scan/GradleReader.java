@@ -93,7 +93,7 @@ public final class GradleReader {
     String rel = root.relativize(dir).toString().replace('\\', '/');
     String buildFile = Files.isRegularFile(file) ? root.relativize(file).toString().replace('\\', '/') : null;
     return new Module(key, name, version, dir, rel, packaging, finalName, List.copyOf(deps),
-        List.copyOf(children), boot, buildFile);
+        List.copyOf(children), boot, buildFile, ResourceFiltering.NONE);
   }
 
   private static String readFirst(Path... candidates) throws IOException {

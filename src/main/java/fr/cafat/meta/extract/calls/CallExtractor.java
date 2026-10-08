@@ -14,6 +14,8 @@ import fr.cafat.meta.spoon.Provenance;
 import fr.cafat.meta.spoon.Types;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,8 +33,10 @@ import spoon.reflect.code.CtTypeAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtField;
 import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.CtTypeMember;
 import spoon.reflect.reference.CtTypeReference;
@@ -68,6 +72,7 @@ public final class CallExtractor {
       "method");
   private static final Pattern REQUEST_LINE = Pattern.compile("^\\s*([A-Z]+)\\s+(\\S*)");
   private static final Pattern SVC_HOST = Pattern.compile("^([a-z0-9][a-z0-9-]*)\\.(?:[a-z0-9-]+\\.)?svc(?:\\.cluster\\.local)?$");
+  private static final Pattern FORMAT_SPECIFIER = Pattern.compile("%(?:(\\d+)\\$)?[sd]");
   private static final int MAX_DEPTH = 8;
 
   private final ExtractionContext ctx;
@@ -202,9 +207,68 @@ public final class CallExtractor {
             + " non déterminée", ctx.source(inv));
       }
     }
-    String url = text(eval(inv.getArguments().get(0)));
+    CtExpression<?> urlExpr = inv.getArguments().get(0);
+    PartialString evaluated = eval(urlExpr);
     PartialString base = baseUrl(inv.getTarget(), 0);
-    resolveAndAdd(REST_TEMPLATE, verb, withBase(base, url), Callers.of(inv), inv);
+    List<CtInvocation<?>> sites = evaluated.isComplete() ? List.of() : callSites(inv, evaluated);
+    if (sites.isEmpty()) {
+      resolveAndAdd(REST_TEMPLATE, verb, withBase(base, text(evaluated)), Callers.of(inv), inv);
+      return;
+    }
+    // URL reçue en paramètre : un appel par site d'appel de la méthode, avec ses arguments
+    CtMethod<?> method = inv.getParent(CtMethod.class);
+    for (CtInvocation<?> site : sites) {
+      Map<CtParameter<?>, PartialString> bindings = new IdentityHashMap<>();
+      for (int i = 0; i < method.getParameters().size(); i++) {
+        bindings.put(method.getParameters().get(i), eval(site.getArguments().get(i)));
+      }
+      String url = text(ctx.eval().eval(urlExpr, bindings));
+      resolveAndAdd(REST_TEMPLATE, verb, withBase(base, url), Callers.of(site), site);
+    }
+  }
+
+  /**
+   * Appels, dans le dépôt, de la méthode qui contient {@code inv}, quand l'URL évaluée dépend d'un
+   * de ses paramètres ; vide sinon. Ordre : fichier, puis position.
+   */
+  private List<CtInvocation<?>> callSites(CtInvocation<?> inv, PartialString url) {
+    CtMethod<?> method = inv.getParent(CtMethod.class);
+    if (method == null || inv.getParent(CtLambda.class) != null) {
+      return List.of();
+    }
+    Set<String> params = new HashSet<>();
+    method.getParameters().forEach(p -> params.add(p.getSimpleName()));
+    boolean dependsOnParameter = url.parts().stream()
+        .anyMatch(p -> p instanceof PartialString.Unknown u && params.contains(u.name()));
+    if (!dependsOnParameter) {
+      return List.of();
+    }
+    List<CtInvocation<?>> sites = new ArrayList<>();
+    for (CtType<?> t : ctx.types().all()) {
+      if (t.getDeclaringType() != null) {
+        continue;
+      }
+      for (CtInvocation<?> candidate : t.getElements(new TypeFilter<>(CtInvocation.class))) {
+        if (candidate.getExecutable() != null
+            && candidate.getExecutable().getSimpleName().equals(method.getSimpleName())
+            && candidate.getArguments().size() == method.getParameters().size()
+            && declarationOf(candidate) == method) {
+          sites.add(candidate);
+        }
+      }
+    }
+    sites.sort(Comparator.comparing((CtInvocation<?> c) -> ctx.source(c).file(),
+            Comparator.nullsFirst(Comparator.<String>naturalOrder()))
+        .thenComparingInt(Provenance::offset));
+    return sites;
+  }
+
+  private static CtExecutable<?> declarationOf(CtInvocation<?> inv) {
+    try {
+      return inv.getExecutable().getExecutableDeclaration();
+    } catch (RuntimeException e) {
+      return null;
+    }
   }
 
   /**
@@ -390,7 +454,7 @@ public final class CallExtractor {
     }
     String cleanRaw = Secrets.sanitizeUrl(raw);
     Config.Resolution r = ctx.config().resolve(cleanRaw);
-    String value = Secrets.sanitizeUrl(r.value());
+    String value = formatVariables(Secrets.sanitizeUrl(r.value()));
     String host = host(value);
     String resolved = r.complete() && host != null ? value : null;
     String path = path(resolved != null ? resolved : value);
@@ -412,6 +476,25 @@ public final class CallExtractor {
     String id = ctx.appId() + ":" + (verb == null ? "?" : verb) + ":" + (target == null ? "?" : target) + ":"
         + (path != null ? path : raw != null ? raw : "?") + (caller == null ? "" : "@" + caller);
     out.add(new Call(id, client, verb, raw, resolved, path, target, caller, ctx.source(at)));
+  }
+
+  /**
+   * Spécificateurs {@code %s}, {@code %d} restés dans l'URL (format lu dans la configuration puis
+   * passé à {@code String.format}) : variables {@code {argN}}, N étant la position de l'argument.
+   */
+  static String formatVariables(String url) {
+    if (url == null || !url.contains("%")) {
+      return url;
+    }
+    Matcher m = FORMAT_SPECIFIER.matcher(url);
+    StringBuilder sb = new StringBuilder();
+    int next = 0;
+    while (m.find()) {
+      int n = m.group(1) != null ? Integer.parseInt(m.group(1)) : ++next;
+      m.appendReplacement(sb, "{arg" + n + "}");
+    }
+    m.appendTail(sb);
+    return sb.toString();
   }
 
   /** Hôte littéral d'une URL absolue http(s), sans port ; null sinon. */

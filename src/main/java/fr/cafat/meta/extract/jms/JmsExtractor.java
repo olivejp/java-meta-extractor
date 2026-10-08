@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -23,6 +24,7 @@ import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtElement;
@@ -92,6 +94,8 @@ public final class JmsExtractor {
   private final Map<String, Boolean> pubSubBeans = new HashMap<>();
   /** Templates déclarés en {@code @Bean} : nom → destination par défaut. */
   private final Map<String, Dest> defaultDestinations = new HashMap<>();
+  /** Destinations déclarées en {@code @Bean} (Queue, Topic, Destination) : nom → destination. */
+  private final Map<String, Dest> destinationBeans = new TreeMap<>();
 
   public JmsExtractor(ExtractionContext ctx) {
     this.ctx = ctx;
@@ -99,6 +103,7 @@ public final class JmsExtractor {
 
   public List<Messaging> extract() {
     collectPubSubBeans();
+    collectDestinationBeans();
     for (CtType<?> t : ctx.types().all()) {
       CtAnnotation<?> mdb = Annotations.find(t, EJB, "MessageDriven");
       if (mdb != null) {
@@ -362,7 +367,30 @@ public final class JmsExtractor {
       Dest d = destination(v.getDefaultExpression(), depth + 1);
       return new Dest(d.raw(), d.type() != null ? d.type() : declared);
     }
+    Dest injected = v instanceof CtField<?> f ? injectedBean(f) : null;
+    if (injected != null) {
+      return new Dest(injected.raw(), injected.type() != null ? injected.type() : declared);
+    }
     return new Dest(null, declared);
+  }
+
+  /**
+   * Bean destination injecté dans un champ, comme Spring le choisit : qualificateur, sinon bean du
+   * nom du champ, sinon seul bean de type compatible.
+   */
+  private Dest injectedBean(CtField<?> f) {
+    CtAnnotation<?> q = Annotations.findAny(f, QUALIFIERS, "Qualifier", "Named");
+    String qualifier = q == null ? null : ctx.str(q, "value");
+    if (qualifier != null) {
+      return destinationBeans.get(qualifier);
+    }
+    if (destinationBeans.containsKey(f.getSimpleName())) {
+      return destinationBeans.get(f.getSimpleName());
+    }
+    String declared = typeOfDestination(f.getType());
+    List<Dest> compatible = destinationBeans.values().stream()
+        .filter(d -> declared == null || declared.equals(d.type())).toList();
+    return compatible.size() == 1 ? compatible.get(0) : null;
   }
 
   private static String typeOfDestination(CtTypeReference<?> ref) {
@@ -459,6 +487,29 @@ public final class JmsExtractor {
               defaultDestinations.put(name, d);
             }
           }
+        }
+      }
+    }
+  }
+
+  /** Beans {@code @Bean} de type destination qui renvoient une seule expression. */
+  private void collectDestinationBeans() {
+    for (CtType<?> t : ctx.types().all()) {
+      for (CtMethod<?> m : t.getMethods()) {
+        CtAnnotation<?> bean = Annotations.find(m, SPRING_CONTEXT, "Bean");
+        String simple = m.getType() == null ? "" : Types.simpleName(m.getType());
+        if (bean == null || m.getBody() == null
+            || !(simple.endsWith("Destination") || simple.endsWith("Queue") || simple.endsWith("Topic"))) {
+          continue;
+        }
+        List<CtReturn<?>> returns = m.getBody().getElements(new TypeFilter<>(CtReturn.class));
+        if (returns.size() != 1 || returns.get(0).getReturnedExpression() == null) {
+          continue;
+        }
+        Dest d = destination(returns.get(0).getReturnedExpression());
+        Dest typed = new Dest(d.raw(), d.type() != null ? d.type() : typeOfDestination(m.getType()));
+        for (String name : beanNames(m, bean)) {
+          destinationBeans.put(name, typed);
         }
       }
     }

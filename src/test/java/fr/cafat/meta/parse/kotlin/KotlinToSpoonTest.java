@@ -419,4 +419,29 @@ class KotlinToSpoonTest {
     assertThat(invocation(type(b, "fr.x.d.Dao"), "queryForList").getTarget().getType()
         .getQualifiedName()).isEqualTo("org.springframework.jdbc.core.JdbcTemplate");
   }
+
+  @Test
+  void aliasDeTypeResolu() throws IOException {
+    Launcher l = build(Map.of(), Map.of(
+        "src/main/kotlin/fr/x/model/pg/Union.kt", """
+            package fr.x.model.pg
+
+            class Union(val id: Long)
+
+            typealias PGUnion = Union
+            typealias Liste<T> = List<T>
+            """,
+        "src/main/kotlin/fr/x/writer/UnionWriter.kt", """
+            package fr.x.writer
+
+            import fr.x.model.pg.PGUnion
+
+            class UnionWriter(private val union: PGUnion)
+            """));
+    CtField<?> union = type(l, "fr.x.writer.UnionWriter").getField("union");
+    assertThat(union.getType().getQualifiedName()).isEqualTo("fr.x.model.pg.Union");
+    // alias générique : toujours signalé comme non traduit
+    assertThat(diags.all()).extracting(Diagnostic::message)
+        .containsExactly("Déclaration Kotlin de premier niveau non traduite : TypeAlias");
+  }
 }
