@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: s-gen-fixture
+  datasource:
+    pg:
+      jdbc-url: jdbc:postgresql://pg-fixture.cafat.nc:5432/gpp?currentSchema=sgengpp&password=Fixture-Pwd-URL
+      username: gpp_owner
+      password: Fixture-Pwd-42
+      driver-class-name: org.postgresql.Driver
+    db400:
+      jdbc-url: jdbc:as400://as400-fixture.cafat.nc;libraries=MGENGPP,CAFGEO;naming=system;user=GPPUSR;password=Fixture-Pwd-AS400
+      username: GPPUSR
+      password: ${DB400_PASSWORD:Fixture-Pwd-Default}
+  flyway:
+    url: jdbc:postgresql://pg-fixture.cafat.nc:5432/gpp
+  jpa:
+    open-in-view: false
+
+server:
+  servlet:
+    context-path: /gpp
+
+referentiel:
+  url: http://s-ref-adresse:8080/api
+geo:
+  url: http://s-ref-geo.referentiel.svc.cluster.local:8080
+jms:
+  queue:
+    maj: GPP.PERSONNE.MAJ
+api:
+  token: Fixture-Token-123
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+referentiel:
+  url: http://s-ref-adresse-prod:8080/api

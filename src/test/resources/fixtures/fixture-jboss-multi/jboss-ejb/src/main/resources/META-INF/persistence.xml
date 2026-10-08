@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="http://xmlns.jcp.org/xml/ns/persistence" version="2.2">
+  <persistence-unit name="gppPU" transaction-type="JTA">
+    <jta-data-source>java:jboss/datasources/GppDS</jta-data-source>
+    <class>fr.cafat.legacy.domain.Contrat</class>
+    <class>fr.cafat.legacy.domain.Assure</class>
+    <exclude-unlisted-classes>true</exclude-unlisted-classes>
+    <properties>
+      <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"/>
+      <property name="hibernate.default_schema" value="legacy"/>
+      <property name="hibernate.connection.password" value="Fixture-Pwd-PU"/>
+    </properties>
+  </persistence-unit>
+  <persistence-unit name="as400PU" transaction-type="JTA">
+    <jta-data-source>java:jboss/datasources/As400DS</jta-data-source>
+    <class>fr.cafat.legacy.db2.VuePersonne</class>
+    <exclude-unlisted-classes>true</exclude-unlisted-classes>
+    <properties>
+      <property name="hibernate.dialect" value="org.hibernate.dialect.DB2400Dialect"/>
+    </properties>
+  </persistence-unit>
+</persistence>

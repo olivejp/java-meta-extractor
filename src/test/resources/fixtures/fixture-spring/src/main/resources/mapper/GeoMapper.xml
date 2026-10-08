@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="fr.cafat.gpp.db2.mapper.GeoMapper">
+
+  <sql id="colonnes">CODE_COMMUNE, LIBELLE</sql>
+
+  <select id="findCommune" resultType="string">
+    SELECT <include refid="colonnes"/>
+      FROM CAFGEO.GEO_COMMUNE
+     WHERE CODE_COMMUNE = #{code}
+  </select>
+
+  <update id="majLibelle">
+    UPDATE CAFGEO.GEO_COMMUNE SET LIBELLE = #{libelle}
+    <where>
+      <if test="code != null">CODE_COMMUNE = #{code}</if>
+    </where>
+  </update>
+</mapper>

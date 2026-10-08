@@ -1,0 +1,447 @@
+{
+  "application": {
+    "commit": "abc1234",
+    "context_path": "/legacy",
+    "datasources": [
+      {
+        "config_prefix": null,
+        "default_schema": null,
+        "id": "as400PU",
+        "jdbc_url": null,
+        "jndi_name": "java:jboss/datasources/As400DS",
+        "kind": "db2",
+        "source": {
+          "class": null,
+          "file": "jboss-ejb/src/main/resources/META-INF/persistence.xml",
+          "line": 14
+        }
+      },
+      {
+        "config_prefix": null,
+        "default_schema": "legacy",
+        "id": "gppPU",
+        "jdbc_url": null,
+        "jndi_name": "java:jboss/datasources/GppDS",
+        "kind": "postgresql",
+        "source": {
+          "class": null,
+          "file": "jboss-ejb/src/main/resources/META-INF/persistence.xml",
+          "line": 3
+        }
+      }
+    ],
+    "id": "jboss-ear",
+    "module": "jboss-ear",
+    "name": "jboss-ear",
+    "profiles": [],
+    "repository": null,
+    "tech": [
+      "ejb",
+      "java",
+      "jax-rs",
+      "jboss",
+      "jms",
+      "jpa"
+    ],
+    "version": "2.1.0"
+  },
+  "calls": [
+    {
+      "caller": "fr.cafat.legacy.rest.ContratResource#assure",
+      "client": "jaxrs_client",
+      "id": "jboss-ear:GET:?:/assures/{id}@fr.cafat.legacy.rest.ContratResource#assure",
+      "method": "GET",
+      "path": "/assures/{id}",
+      "raw_url": "${assure.url}/assures/{id}",
+      "resolved_url": null,
+      "source": {
+        "class": "fr.cafat.legacy.rest.ContratResource",
+        "file": "jboss-web/src/main/java/fr/cafat/legacy/rest/ContratResource.java",
+        "line": 34
+      },
+      "target_app": null
+    }
+  ],
+  "contract_version": "1.0",
+  "diagnostics": [
+    {
+      "code": "PARENT_NOT_FOUND",
+      "id": "jboss-ear:PARENT_NOT_FOUND:a594c8ff82e2",
+      "level": "warning",
+      "message": "classe parente fr.cafat.commun.persistence.AbstractEntite de fr.cafat.legacy.domain.Assure absente du dépôt : colonnes héritées inconnues",
+      "source": {
+        "class": "fr.cafat.legacy.domain.Assure",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/domain/Assure.java",
+        "line": 12
+      }
+    },
+    {
+      "code": "SQL_UNPARSED",
+      "id": "jboss-ear:SQL_UNPARSED:bd34862c5ef5",
+      "level": "warning",
+      "message": "SQL construit dynamiquement (valeurs inconnues : numero) (native_query, fr.cafat.legacy.dao.ContratDao#adresses)",
+      "source": {
+        "class": "fr.cafat.legacy.dao.ContratDao",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/dao/ContratDao.java",
+        "line": 25
+      }
+    },
+    {
+      "code": "URL_UNRESOLVED",
+      "id": "jboss-ear:URL_UNRESOLVED:56fc655e0f9a",
+      "level": "warning",
+      "message": "URL non résolue : ${assure.url}/assures/{id} (inconnu : assure.url)",
+      "source": {
+        "class": "fr.cafat.legacy.rest.ContratResource",
+        "file": "jboss-web/src/main/java/fr/cafat/legacy/rest/ContratResource.java",
+        "line": 34
+      }
+    }
+  ],
+  "endpoints": [
+    {
+      "framework": "jax_rs",
+      "handler": "fr.cafat.legacy.rest.ContratResource#get",
+      "id": "jboss-ear:GET:/legacy/rest/contrats/{id}",
+      "method": "GET",
+      "path": "/legacy/rest/contrats/{id}",
+      "request_type": null,
+      "response_type": "fr.cafat.legacy.domain.Contrat",
+      "source": {
+        "class": "fr.cafat.legacy.rest.ContratResource",
+        "file": "jboss-web/src/main/java/fr/cafat/legacy/rest/ContratResource.java",
+        "line": 20
+      }
+    },
+    {
+      "framework": "jax_rs",
+      "handler": "fr.cafat.legacy.rest.ContratResource#assure",
+      "id": "jboss-ear:GET:/legacy/rest/contrats/{id}/assure",
+      "method": "GET",
+      "path": "/legacy/rest/contrats/{id}/assure",
+      "request_type": null,
+      "response_type": "String",
+      "source": {
+        "class": "fr.cafat.legacy.rest.ContratResource",
+        "file": "jboss-web/src/main/java/fr/cafat/legacy/rest/ContratResource.java",
+        "line": 32
+      }
+    },
+    {
+      "framework": "jax_rs",
+      "handler": "fr.cafat.legacy.rest.ContratResource#creer",
+      "id": "jboss-ear:POST:/legacy/rest/contrats",
+      "method": "POST",
+      "path": "/legacy/rest/contrats",
+      "request_type": "fr.cafat.legacy.domain.Contrat",
+      "response_type": null,
+      "source": {
+        "class": "fr.cafat.legacy.rest.ContratResource",
+        "file": "jboss-web/src/main/java/fr/cafat/legacy/rest/ContratResource.java",
+        "line": 26
+      }
+    }
+  ],
+  "entities": [
+    {
+      "class": "fr.cafat.legacy.db2.VuePersonne",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "nom",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "NOM",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "VW_PERSONNE",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "numero",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "NUMERO_INTERNE",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "VW_PERSONNE",
+          "unique": true
+        }
+      ],
+      "datasource": "as400PU",
+      "id": "jboss-ear:fr.cafat.legacy.db2.VuePersonne",
+      "inheritance": null,
+      "is_view": true,
+      "kind": "entity",
+      "name": "VuePersonne",
+      "parent": null,
+      "schema": "MGENGPP",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.legacy.db2.VuePersonne",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/db2/VuePersonne.java",
+        "line": 10
+      },
+      "table": "VW_PERSONNE"
+    },
+    {
+      "class": "fr.cafat.legacy.domain.Assure",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "nomUsage",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "NOM_USAGE",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "ASSURE",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "numero",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "id",
+          "length": 13,
+          "name": "NUMERO",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "ASSURE",
+          "unique": true
+        }
+      ],
+      "datasource": "gppPU",
+      "id": "jboss-ear:fr.cafat.legacy.domain.Assure",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "Assure",
+      "parent": "fr.cafat.commun.persistence.AbstractEntite",
+      "schema": "legacy",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.legacy.domain.Assure",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/domain/Assure.java",
+        "line": 12
+      },
+      "table": "ASSURE"
+    },
+    {
+      "class": "fr.cafat.legacy.domain.Contrat",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "assure",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "fr.cafat.legacy.domain.Assure",
+          "kind": "join",
+          "length": null,
+          "name": "assure_NUMERO",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": "jboss-ear:fr.cafat.legacy.domain.Assure",
+          "scale": null,
+          "table": "Contrat",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "dateEffet",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "java.util.Date",
+          "kind": "basic",
+          "length": null,
+          "name": "dateEffet",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "Contrat",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "idContrat",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "idContrat",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "Contrat",
+          "unique": true
+        }
+      ],
+      "datasource": "gppPU",
+      "id": "jboss-ear:fr.cafat.legacy.domain.Contrat",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "Contrat",
+      "parent": null,
+      "schema": "legacy",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.legacy.domain.Contrat",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/domain/Contrat.java",
+        "line": 11
+      },
+      "table": "Contrat"
+    }
+  ],
+  "messaging": [
+    {
+      "caller": "fr.cafat.legacy.jms.LegacyListener#onMessage",
+      "destination": "java:/jms/queue/LegacyIn",
+      "destination_type": "queue",
+      "id": "jboss-ear:consume:queue:java:/jms/queue/LegacyIn@fr.cafat.legacy.jms.LegacyListener#onMessage",
+      "raw_destination": "java:/jms/queue/LegacyIn",
+      "role": "consume",
+      "source": {
+        "class": "fr.cafat.legacy.jms.LegacyListener",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/jms/LegacyListener.java",
+        "line": 8
+      }
+    },
+    {
+      "caller": "fr.cafat.legacy.jms.LegacyProducer#envoyer",
+      "destination": "java:/jms/queue/LegacyOut",
+      "destination_type": "queue",
+      "id": "jboss-ear:produce:queue:java:/jms/queue/LegacyOut@fr.cafat.legacy.jms.LegacyProducer#envoyer",
+      "raw_destination": "java:/jms/queue/LegacyOut",
+      "role": "produce",
+      "source": {
+        "class": "fr.cafat.legacy.jms.LegacyProducer",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/jms/LegacyProducer.java",
+        "line": 19
+      }
+    }
+  ],
+  "relations": [
+    {
+      "field": "assure",
+      "from_entity": "jboss-ear:fr.cafat.legacy.domain.Contrat",
+      "id": "jboss-ear:fr.cafat.legacy.domain.Contrat.assure",
+      "inherited_from": null,
+      "inverse_join_columns": null,
+      "join_columns": [
+        "assure_NUMERO"
+      ],
+      "join_table": null,
+      "mapped_by": null,
+      "optional": null,
+      "owning_side": true,
+      "source": {
+        "class": "fr.cafat.legacy.domain.Contrat",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/domain/Contrat.java",
+        "line": 20
+      },
+      "to_class": "fr.cafat.legacy.domain.Assure",
+      "to_entity": "jboss-ear:fr.cafat.legacy.domain.Assure",
+      "type": "MANY_TO_ONE"
+    }
+  ],
+  "sql_accesses": [
+    {
+      "caller": "fr.cafat.legacy.dao.ContratDao#cloturer",
+      "datasource": "gppPU",
+      "id": "jboss-ear:sql:06800bd41517cc50d4275adda59d041ab86b50cb@fr.cafat.legacy.dao.ContratDao#cloturer",
+      "origin": "native_query",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.legacy.dao.ContratDao",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/dao/ContratDao.java",
+        "line": 30
+      },
+      "sql": "UPDATE legacy.contrat SET date_effet = CURRENT_DATE WHERE id_contrat = ?1",
+      "tables": [
+        {
+          "access": "write",
+          "name": "contrat",
+          "schema": "legacy"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.legacy.dao.ContratDao#adresses",
+      "datasource": "as400PU",
+      "id": "jboss-ear:sql:20dcdb44ce2a013e6fad01639e09788e0ae4d2b7@fr.cafat.legacy.dao.ContratDao#adresses",
+      "origin": "native_query",
+      "parsed": false,
+      "source": {
+        "class": "fr.cafat.legacy.dao.ContratDao",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/dao/ContratDao.java",
+        "line": 25
+      },
+      "sql": "SELECT * FROM MGENGPP/VW_ADRESSE WHERE NUMERO_INTERNE = {numero}",
+      "tables": [
+        {
+          "access": "read",
+          "name": "VW_ADRESSE",
+          "schema": "MGENGPP"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.legacy.dao.ContratDao#personnes",
+      "datasource": "as400PU",
+      "id": "jboss-ear:sql:80e21280271068901f7aa5b3bb34f051c9b33458@fr.cafat.legacy.dao.ContratDao#personnes",
+      "origin": "native_query",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.legacy.dao.ContratDao",
+        "file": "jboss-ejb/src/main/java/fr/cafat/legacy/dao/ContratDao.java",
+        "line": 19
+      },
+      "sql": "SELECT NUMERO_INTERNE, NOM FROM MGENGPP.VW_PERSONNE WHERE NUMERO_INTERNE = ?1",
+      "tables": [
+        {
+          "access": "read",
+          "name": "VW_PERSONNE",
+          "schema": "MGENGPP"
+        }
+      ]
+    }
+  ]
+}

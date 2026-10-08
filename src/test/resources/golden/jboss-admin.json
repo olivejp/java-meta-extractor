@@ -1,0 +1,40 @@
+{
+  "application": {
+    "commit": "abc1234",
+    "context_path": "/admin",
+    "datasources": [],
+    "id": "jboss-admin",
+    "module": "jboss-admin",
+    "name": "jboss-admin",
+    "profiles": [],
+    "repository": null,
+    "tech": [
+      "java",
+      "jax-rs"
+    ],
+    "version": "2.1.0"
+  },
+  "calls": [],
+  "contract_version": "1.0",
+  "diagnostics": [],
+  "endpoints": [
+    {
+      "framework": "jax_rs",
+      "handler": "fr.cafat.admin.SanteResource#etat",
+      "id": "jboss-admin:GET:/admin/api/sante",
+      "method": "GET",
+      "path": "/admin/api/sante",
+      "request_type": null,
+      "response_type": "String",
+      "source": {
+        "class": "fr.cafat.admin.SanteResource",
+        "file": "jboss-admin/src/main/java/fr/cafat/admin/SanteResource.java",
+        "line": 10
+      }
+    }
+  ],
+  "entities": [],
+  "messaging": [],
+  "relations": [],
+  "sql_accesses": []
+}

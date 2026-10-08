@@ -1,0 +1,2295 @@
+{
+  "application": {
+    "commit": "abc1234",
+    "context_path": "/gpp",
+    "datasources": [
+      {
+        "config_prefix": "spring.datasource.db400",
+        "default_schema": "MGENGPP",
+        "id": "db400",
+        "jdbc_url": "jdbc:as400://as400-fixture.cafat.nc;libraries=MGENGPP,CAFGEO;naming=system;user=***;password=***",
+        "jndi_name": null,
+        "kind": "db2",
+        "source": {
+          "class": null,
+          "file": "src/main/resources/application.yml",
+          "line": 11
+        }
+      },
+      {
+        "config_prefix": "spring.datasource.pg",
+        "default_schema": "sgengpp",
+        "id": "pg",
+        "jdbc_url": "jdbc:postgresql://pg-fixture.cafat.nc:5432/gpp?currentSchema=sgengpp&password=***",
+        "jndi_name": null,
+        "kind": "postgresql",
+        "source": {
+          "class": null,
+          "file": "src/main/resources/application.yml",
+          "line": 6
+        }
+      }
+    ],
+    "id": "s-gen-fixture",
+    "module": null,
+    "name": "s-gen-fixture",
+    "profiles": [],
+    "repository": null,
+    "tech": [
+      "java",
+      "jms",
+      "jpa",
+      "kotlin",
+      "mybatis",
+      "spring",
+      "spring-boot"
+    ],
+    "version": "1.4.0"
+  },
+  "calls": [
+    {
+      "caller": "fr.cafat.gpp.service.ReferentielService#statutExterne",
+      "client": "rest_client",
+      "id": "s-gen-fixture:GET:?:/v2/status@fr.cafat.gpp.service.ReferentielService#statutExterne",
+      "method": "GET",
+      "path": "/v2/status",
+      "raw_url": "https://api.partenaire-externe.com/v2/status",
+      "resolved_url": "https://api.partenaire-externe.com/v2/status",
+      "source": {
+        "class": "fr.cafat.gpp.service.ReferentielService",
+        "file": "src/main/java/fr/cafat/gpp/service/ReferentielService.java",
+        "line": 40
+      },
+      "target_app": null
+    },
+    {
+      "caller": "fr.cafat.gpp.client.AdresseClient#getAdresse",
+      "client": "feign",
+      "id": "s-gen-fixture:GET:s-ref-adresse:/api/v1/adresses/{id}@fr.cafat.gpp.client.AdresseClient#getAdresse",
+      "method": "GET",
+      "path": "/api/v1/adresses/{id}",
+      "raw_url": "${referentiel.url}/v1/adresses/{id}",
+      "resolved_url": "http://s-ref-adresse:8080/api/v1/adresses/{id}",
+      "source": {
+        "class": "fr.cafat.gpp.client.AdresseClient",
+        "file": "src/main/java/fr/cafat/gpp/client/AdresseClient.java",
+        "line": 13
+      },
+      "target_app": "s-ref-adresse"
+    },
+    {
+      "caller": "fr.cafat.gpp.service.ReferentielService#commune",
+      "client": "rest_template",
+      "id": "s-gen-fixture:GET:s-ref-geo:/communes/{code}@fr.cafat.gpp.service.ReferentielService#commune",
+      "method": "GET",
+      "path": "/communes/{code}",
+      "raw_url": "${geo.url}/communes/{code}",
+      "resolved_url": "http://s-ref-geo.referentiel.svc.cluster.local:8080/communes/{code}",
+      "source": {
+        "class": "fr.cafat.gpp.service.ReferentielService",
+        "file": "src/main/java/fr/cafat/gpp/service/ReferentielService.java",
+        "line": 27
+      },
+      "target_app": "s-ref-geo"
+    },
+    {
+      "caller": "fr.cafat.gpp.service.ReferentielService#lancerJob",
+      "client": "web_client",
+      "id": "s-gen-fixture:POST:s-gen-batch:/jobs/{nom}@fr.cafat.gpp.service.ReferentielService#lancerJob",
+      "method": "POST",
+      "path": "/jobs/{nom}",
+      "raw_url": "http://s-gen-batch:8080/jobs/{nom}",
+      "resolved_url": "http://s-gen-batch:8080/jobs/{nom}",
+      "source": {
+        "class": "fr.cafat.gpp.service.ReferentielService",
+        "file": "src/main/java/fr/cafat/gpp/service/ReferentielService.java",
+        "line": 36
+      },
+      "target_app": "s-gen-batch"
+    },
+    {
+      "caller": "fr.cafat.gpp.client.NotifClient#envoyer",
+      "client": "feign",
+      "id": "s-gen-fixture:POST:s-gen-notif:/notifications@fr.cafat.gpp.client.NotifClient#envoyer",
+      "method": "POST",
+      "path": "/notifications",
+      "raw_url": "/notifications",
+      "resolved_url": "http://s-gen-notif/notifications",
+      "source": {
+        "class": "fr.cafat.gpp.client.NotifClient",
+        "file": "src/main/java/fr/cafat/gpp/client/NotifClient.java",
+        "line": 12
+      },
+      "target_app": "s-gen-notif"
+    },
+    {
+      "caller": "fr.cafat.gpp.client.AdresseClient#creerAdresse",
+      "client": "feign",
+      "id": "s-gen-fixture:POST:s-ref-adresse:/api/v1/adresses@fr.cafat.gpp.client.AdresseClient#creerAdresse",
+      "method": "POST",
+      "path": "/api/v1/adresses",
+      "raw_url": "${referentiel.url}/v1/adresses",
+      "resolved_url": "http://s-ref-adresse:8080/api/v1/adresses",
+      "source": {
+        "class": "fr.cafat.gpp.client.AdresseClient",
+        "file": "src/main/java/fr/cafat/gpp/client/AdresseClient.java",
+        "line": 16
+      },
+      "target_app": "s-ref-adresse"
+    },
+    {
+      "caller": "fr.cafat.gpp.service.ReferentielService#majPartenaire",
+      "client": "rest_template",
+      "id": "s-gen-fixture:PUT:?:/partenaires@fr.cafat.gpp.service.ReferentielService#majPartenaire",
+      "method": "PUT",
+      "path": "/partenaires",
+      "raw_url": "${PARTNER_URL}/partenaires",
+      "resolved_url": null,
+      "source": {
+        "class": "fr.cafat.gpp.service.ReferentielService",
+        "file": "src/main/java/fr/cafat/gpp/service/ReferentielService.java",
+        "line": 32
+      },
+      "target_app": null
+    }
+  ],
+  "contract_version": "1.0",
+  "diagnostics": [
+    {
+      "code": "ENTITY_UNREFERENCED",
+      "id": "s-gen-fixture:ENTITY_UNREFERENCED:222f29cb3fdb",
+      "level": "info",
+      "message": "Entité jamais référencée dans le code : fr.cafat.gpp.pg.domain.ArchiveObsolete",
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.ArchiveObsolete",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/ArchiveObsolete.java",
+        "line": 8
+      }
+    },
+    {
+      "code": "PROFILE_NOT_APPLIED",
+      "id": "s-gen-fixture:PROFILE_NOT_APPLIED:bf9369ec520a",
+      "level": "info",
+      "message": "aucun profil demandé (--profile) : configuration de base seule ; profils disponibles : dev, prod",
+      "source": null
+    },
+    {
+      "code": "SQL_UNPARSED",
+      "id": "s-gen-fixture:SQL_UNPARSED:16b67466cff2",
+      "level": "warning",
+      "message": "SQL construit dynamiquement (valeurs inconnues : type) (jdbc_template, fr.cafat.gpp.pg.dao.ContactDao#evenements)",
+      "source": {
+        "class": "fr.cafat.gpp.pg.dao.ContactDao",
+        "file": "src/main/java/fr/cafat/gpp/pg/dao/ContactDao.java",
+        "line": 54
+      }
+    },
+    {
+      "code": "TARGET_APP_UNKNOWN",
+      "id": "s-gen-fixture:TARGET_APP_UNKNOWN:5a27154ddb34",
+      "level": "info",
+      "message": "application cible non déduite de l'hôte api.partenaire-externe.com",
+      "source": {
+        "class": "fr.cafat.gpp.service.ReferentielService",
+        "file": "src/main/java/fr/cafat/gpp/service/ReferentielService.java",
+        "line": 40
+      }
+    },
+    {
+      "code": "URL_UNRESOLVED",
+      "id": "s-gen-fixture:URL_UNRESOLVED:4c0369d05341",
+      "level": "warning",
+      "message": "URL non résolue : ${PARTNER_URL}/partenaires (inconnu : PARTNER_URL)",
+      "source": {
+        "class": "fr.cafat.gpp.service.ReferentielService",
+        "file": "src/main/java/fr/cafat/gpp/service/ReferentielService.java",
+        "line": 32
+      }
+    }
+  ],
+  "endpoints": [
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#supprimer",
+      "id": "s-gen-fixture:DELETE:/gpp/api/personnes/{id}",
+      "method": "DELETE",
+      "path": "/gpp/api/personnes/{id}",
+      "request_type": null,
+      "response_type": null,
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 28
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.DossierController#getDossier",
+      "id": "s-gen-fixture:GET:/gpp/api/dossiers/{id}",
+      "method": "GET",
+      "path": "/gpp/api/dossiers/{id}",
+      "request_type": null,
+      "response_type": "fr.cafat.gpp.pg.domain.Dossier",
+      "source": {
+        "class": "fr.cafat.gpp.api.DossierController",
+        "file": "src/main/kotlin/fr/cafat/gpp/api/DossierController.kt",
+        "line": 14
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#exporter",
+      "id": "s-gen-fixture:GET:/gpp/api/personnes/export",
+      "method": "GET",
+      "path": "/gpp/api/personnes/export",
+      "request_type": null,
+      "response_type": "byte[]",
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 32
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#exporter",
+      "id": "s-gen-fixture:GET:/gpp/api/personnes/export.csv",
+      "method": "GET",
+      "path": "/gpp/api/personnes/export.csv",
+      "request_type": null,
+      "response_type": "byte[]",
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 32
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#rechercher",
+      "id": "s-gen-fixture:GET:/gpp/api/personnes/search",
+      "method": "GET",
+      "path": "/gpp/api/personnes/search",
+      "request_type": null,
+      "response_type": "java.util.List<fr.cafat.gpp.api.dto.PersonneDto>",
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 23
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#getPersonne",
+      "id": "s-gen-fixture:GET:/gpp/api/personnes/{id}",
+      "method": "GET",
+      "path": "/gpp/api/personnes/{id}",
+      "request_type": null,
+      "response_type": "fr.cafat.gpp.api.dto.PersonneDto",
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 13
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.LegacyController#ping",
+      "id": "s-gen-fixture:GET:/gpp/legacy/ping",
+      "method": "GET",
+      "path": "/gpp/legacy/ping",
+      "request_type": null,
+      "response_type": "String",
+      "source": {
+        "class": "fr.cafat.gpp.api.LegacyController",
+        "file": "src/main/java/fr/cafat/gpp/api/LegacyController.java",
+        "line": 14
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#exporter",
+      "id": "s-gen-fixture:HEAD:/gpp/api/personnes/export",
+      "method": "HEAD",
+      "path": "/gpp/api/personnes/export",
+      "request_type": null,
+      "response_type": "byte[]",
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 32
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#exporter",
+      "id": "s-gen-fixture:HEAD:/gpp/api/personnes/export.csv",
+      "method": "HEAD",
+      "path": "/gpp/api/personnes/export.csv",
+      "request_type": null,
+      "response_type": "byte[]",
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 32
+      }
+    },
+    {
+      "framework": "spring_mvc",
+      "handler": "fr.cafat.gpp.api.PersonneController#creer",
+      "id": "s-gen-fixture:POST:/gpp/api/personnes",
+      "method": "POST",
+      "path": "/gpp/api/personnes",
+      "request_type": "fr.cafat.gpp.api.dto.PersonneDto",
+      "response_type": "fr.cafat.gpp.api.dto.PersonneDto",
+      "source": {
+        "class": "fr.cafat.gpp.api.PersonneController",
+        "file": "src/main/java/fr/cafat/gpp/api/PersonneController.java",
+        "line": 18
+      }
+    }
+  ],
+  "entities": [
+    {
+      "class": "fr.cafat.gpp.db2.domain.GeoCommune",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "code",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "id",
+          "length": 5,
+          "name": "code_commune",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "geo_commune",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "libelle",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "libelle",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "geo_commune",
+          "unique": null
+        }
+      ],
+      "datasource": "db400",
+      "id": "s-gen-fixture:fr.cafat.gpp.db2.domain.GeoCommune",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "GeoCommune",
+      "parent": null,
+      "schema": "cafgeo",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.db2.domain.GeoCommune",
+        "file": "src/main/java/fr/cafat/gpp/db2/domain/GeoCommune.java",
+        "line": 10
+      },
+      "table": "geo_commune"
+    },
+    {
+      "class": "fr.cafat.gpp.db2.domain.PersonneDb2",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "nom",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "nom",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "numeroInterne",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "numero_interne",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": true
+        }
+      ],
+      "datasource": "db400",
+      "id": "s-gen-fixture:fr.cafat.gpp.db2.domain.PersonneDb2",
+      "inheritance": null,
+      "is_view": true,
+      "kind": "entity",
+      "name": "PersonneDb2",
+      "parent": null,
+      "schema": "mgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.db2.domain.PersonneDb2",
+        "file": "src/main/java/fr/cafat/gpp/db2/domain/PersonneDb2.java",
+        "line": 11
+      },
+      "table": "gpp_personne_physique"
+    },
+    {
+      "class": "fr.cafat.gpp.db2.domain.Union",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "v_union",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "libelle",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 50,
+          "name": "libelle",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "v_union",
+          "unique": null
+        }
+      ],
+      "datasource": "db400",
+      "id": "s-gen-fixture:fr.cafat.gpp.db2.domain.Union",
+      "inheritance": null,
+      "is_view": true,
+      "kind": "entity",
+      "name": "Union",
+      "parent": null,
+      "schema": "mgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.db2.domain.Union",
+        "file": "src/main/java/fr/cafat/gpp/db2/domain/Union.java",
+        "line": 11
+      },
+      "table": "v_union"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.AbstractAuditEntity",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "createdBy",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "created_by",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": null,
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "createdAt",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "java.time.LocalDateTime",
+          "kind": "basic",
+          "length": null,
+          "name": "date_creation",
+          "nullable": false,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": null,
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "version",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Integer",
+          "kind": "version",
+          "length": null,
+          "name": "version",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": null,
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.AbstractAuditEntity",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "mapped_superclass",
+      "name": null,
+      "parent": null,
+      "schema": null,
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.AbstractAuditEntity",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/AbstractAuditEntity.java",
+        "line": 9
+      },
+      "table": null
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Adresse",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "codePostal",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 5,
+          "name": "code_postal",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": null,
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "rue",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "rue",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": null,
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "ville",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "ville",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": null,
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Adresse",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "embeddable",
+      "name": null,
+      "parent": null,
+      "schema": null,
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Adresse",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Adresse.java",
+        "line": 7
+      },
+      "table": null
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.ArchiveObsolete",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "contenuArchive",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "contenu_archive",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "archive_obsolete",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "archive_obsolete",
+          "unique": true
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.ArchiveObsolete",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "ArchiveObsolete",
+      "parent": null,
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.ArchiveObsolete",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/ArchiveObsolete.java",
+        "line": 8
+      },
+      "table": "archive_obsolete"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Courriel",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "adresseMail",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "adresse_mail",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_courriel",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "pk_join",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "scale": null,
+          "table": "gpp_courriel",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "personnePhysique",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+          "kind": "join",
+          "length": null,
+          "name": "fk_personne_physique",
+          "nullable": false,
+          "pk": false,
+          "precision": null,
+          "references": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "principal",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": "Boolean",
+          "kind": "basic",
+          "length": null,
+          "name": "principal",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": null,
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": null,
+          "kind": "discriminator",
+          "length": null,
+          "name": "type_contact",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Courriel",
+      "inheritance": {
+        "discriminator": {
+          "column": "type_contact",
+          "type": "STRING",
+          "value": "MEL"
+        },
+        "join_columns": [
+          "id"
+        ],
+        "root": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+        "strategy": "JOINED"
+      },
+      "is_view": null,
+      "kind": "entity",
+      "name": "Courriel",
+      "parent": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Courriel",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Courriel.java",
+        "line": 10
+      },
+      "table": "gpp_courriel"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Deces",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "capitalDeces",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "java.math.BigDecimal",
+          "kind": "basic",
+          "length": null,
+          "name": "capital_deces",
+          "nullable": null,
+          "pk": false,
+          "precision": 10,
+          "references": null,
+          "scale": 2,
+          "table": "gpp_evenement",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "dateEvenement",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+          "java_type": "java.time.LocalDate",
+          "kind": "basic",
+          "length": null,
+          "name": "date_evenement",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": "SEQUENCE",
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": null,
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+          "java_type": null,
+          "kind": "discriminator",
+          "length": 3,
+          "name": "type_evt",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Deces",
+      "inheritance": {
+        "discriminator": {
+          "column": "type_evt",
+          "type": "STRING",
+          "value": "DEC"
+        },
+        "join_columns": null,
+        "root": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+        "strategy": "SINGLE_TABLE"
+      },
+      "is_view": null,
+      "kind": "entity",
+      "name": "Deces",
+      "parent": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Deces",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Deces.java",
+        "line": 10
+      },
+      "table": "gpp_evenement"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Dossier",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "histoNumero",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_dossier",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "statut",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 10,
+          "name": "statut",
+          "nullable": false,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_dossier",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Dossier",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "Dossier",
+      "parent": null,
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Dossier",
+        "file": "src/main/kotlin/fr/cafat/gpp/pg/domain/Dossier.kt",
+        "line": 12
+      },
+      "table": "gpp_dossier"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Evenement",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "dateEvenement",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "java.time.LocalDate",
+          "kind": "basic",
+          "length": null,
+          "name": "date_evenement",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": "SEQUENCE",
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": null,
+          "generated": null,
+          "inherited_from": null,
+          "java_type": null,
+          "kind": "discriminator",
+          "length": 3,
+          "name": "type_evt",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+      "inheritance": {
+        "discriminator": {
+          "column": "type_evt",
+          "type": "STRING",
+          "value": null
+        },
+        "join_columns": null,
+        "root": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+        "strategy": "SINGLE_TABLE"
+      },
+      "is_view": null,
+      "kind": "entity",
+      "name": "Evenement",
+      "parent": null,
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Evenement",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Evenement.java",
+        "line": 18
+      },
+      "table": "gpp_evenement"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Groupe",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_groupe",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "libelle",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "libelle",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_groupe",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Groupe",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "Groupe",
+      "parent": null,
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Groupe",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Groupe.java",
+        "line": 11
+      },
+      "table": "gpp_groupe"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.MoyenContact",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "personnePhysique",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+          "kind": "join",
+          "length": null,
+          "name": "fk_personne_physique",
+          "nullable": false,
+          "pk": false,
+          "precision": null,
+          "references": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "principal",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Boolean",
+          "kind": "basic",
+          "length": null,
+          "name": "principal",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": null,
+          "generated": null,
+          "inherited_from": null,
+          "java_type": null,
+          "kind": "discriminator",
+          "length": null,
+          "name": "type_contact",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+      "inheritance": {
+        "discriminator": {
+          "column": "type_contact",
+          "type": "STRING",
+          "value": null
+        },
+        "join_columns": null,
+        "root": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+        "strategy": "JOINED"
+      },
+      "is_view": null,
+      "kind": "entity",
+      "name": "MoyenContact",
+      "parent": null,
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.MoyenContact",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/MoyenContact.java",
+        "line": 18
+      },
+      "table": "gpp_moyen_contact"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Naissance",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "dateEvenement",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+          "java_type": "java.time.LocalDate",
+          "kind": "basic",
+          "length": null,
+          "name": "date_evenement",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": "SEQUENCE",
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "lieu",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 60,
+          "name": "lieu_naissance",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": null,
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+          "java_type": null,
+          "kind": "discriminator",
+          "length": 3,
+          "name": "type_evt",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_evenement",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Naissance",
+      "inheritance": {
+        "discriminator": {
+          "column": "type_evt",
+          "type": "STRING",
+          "value": "NAI"
+        },
+        "join_columns": null,
+        "root": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+        "strategy": "SINGLE_TABLE"
+      },
+      "is_view": null,
+      "kind": "entity",
+      "name": "Naissance",
+      "parent": "s-gen-fixture:fr.cafat.gpp.pg.domain.Evenement",
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Naissance",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Naissance.java",
+        "line": 9
+      },
+      "table": "gpp_evenement"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.PGUnion",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "actif",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Boolean",
+          "kind": "basic",
+          "length": null,
+          "name": "actif",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_union",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_union",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "libelle",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "libelle",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_union",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.PGUnion",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "PGUnion",
+      "parent": null,
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.PGUnion",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/PGUnion.java",
+        "line": 13
+      },
+      "table": "gpp_union"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "columns": [
+        {
+          "enum_storage": "STRING",
+          "enum_values": [
+            "M",
+            "MME",
+            "NON_PRECISE"
+          ],
+          "field": "civilite",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "fr.cafat.gpp.pg.domain.Civilite",
+          "kind": "basic",
+          "length": null,
+          "name": "civilite",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "adresse.codePostal",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 5,
+          "name": "code_postal",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "createdBy",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.AbstractAuditEntity",
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "created_by",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "createdAt",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.AbstractAuditEntity",
+          "java_type": "java.time.LocalDateTime",
+          "kind": "basic",
+          "length": null,
+          "name": "date_creation",
+          "nullable": false,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "dossier",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "fr.cafat.gpp.pg.domain.Dossier",
+          "kind": "join",
+          "length": null,
+          "name": "fk_dossier",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": "s-gen-fixture:fr.cafat.gpp.pg.domain.Dossier",
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "nom",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 80,
+          "name": "nom",
+          "nullable": false,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "numeroCafat",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 12,
+          "name": "numero_cafat",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "numeroInterne",
+          "generated": "IDENTITY",
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "numero_interne",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "adresse.rue",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "rue",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "version",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.AbstractAuditEntity",
+          "java_type": "Integer",
+          "kind": "version",
+          "length": null,
+          "name": "version",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "adresse.ville",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": null,
+          "name": "ville_residence",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_personne_physique",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "inheritance": null,
+      "is_view": null,
+      "kind": "entity",
+      "name": "PersonnePhysique",
+      "parent": "s-gen-fixture:fr.cafat.gpp.pg.domain.AbstractAuditEntity",
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/PersonnePhysique.java",
+        "line": 9
+      },
+      "table": "gpp_personne_physique"
+    },
+    {
+      "class": "fr.cafat.gpp.pg.domain.Telephone",
+      "columns": [
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "personnePhysique",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+          "kind": "join",
+          "length": null,
+          "name": "fk_personne_physique",
+          "nullable": false,
+          "pk": false,
+          "precision": null,
+          "references": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": "Long",
+          "kind": "id",
+          "length": null,
+          "name": "id",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "principal",
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": "Boolean",
+          "kind": "basic",
+          "length": null,
+          "name": "principal",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": null,
+          "generated": null,
+          "inherited_from": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "java_type": null,
+          "kind": "discriminator",
+          "length": null,
+          "name": "type_contact",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_moyen_contact",
+          "unique": null
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "id",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "Long",
+          "kind": "pk_join",
+          "length": null,
+          "name": "id_moyen_contact",
+          "nullable": false,
+          "pk": true,
+          "precision": null,
+          "references": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+          "scale": null,
+          "table": "gpp_telephone",
+          "unique": true
+        },
+        {
+          "enum_storage": null,
+          "enum_values": null,
+          "field": "numero",
+          "generated": null,
+          "inherited_from": null,
+          "java_type": "String",
+          "kind": "basic",
+          "length": 20,
+          "name": "numero",
+          "nullable": null,
+          "pk": false,
+          "precision": null,
+          "references": null,
+          "scale": null,
+          "table": "gpp_telephone",
+          "unique": null
+        }
+      ],
+      "datasource": "pg",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Telephone",
+      "inheritance": {
+        "discriminator": {
+          "column": "type_contact",
+          "type": "STRING",
+          "value": "TEL"
+        },
+        "join_columns": [
+          "id_moyen_contact"
+        ],
+        "root": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+        "strategy": "JOINED"
+      },
+      "is_view": null,
+      "kind": "entity",
+      "name": "Telephone",
+      "parent": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+      "schema": "sgengpp",
+      "secondary_tables": [],
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Telephone",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Telephone.java",
+        "line": 13
+      },
+      "table": "gpp_telephone"
+    }
+  ],
+  "messaging": [
+    {
+      "caller": "fr.cafat.gpp.jms.PersonneMessaging#onMaj",
+      "destination": "GPP.PERSONNE.MAJ",
+      "destination_type": "queue",
+      "id": "s-gen-fixture:consume:queue:GPP.PERSONNE.MAJ@fr.cafat.gpp.jms.PersonneMessaging#onMaj",
+      "raw_destination": "${jms.queue.maj}",
+      "role": "consume",
+      "source": {
+        "class": "fr.cafat.gpp.jms.PersonneMessaging",
+        "file": "src/main/java/fr/cafat/gpp/jms/PersonneMessaging.java",
+        "line": 19
+      }
+    },
+    {
+      "caller": "fr.cafat.gpp.jms.PersonneMessaging#onMaj",
+      "destination": "GPP.PERSONNE.NOTIF",
+      "destination_type": "queue",
+      "id": "s-gen-fixture:produce:queue:GPP.PERSONNE.NOTIF@fr.cafat.gpp.jms.PersonneMessaging#onMaj",
+      "raw_destination": "GPP.PERSONNE.NOTIF",
+      "role": "produce",
+      "source": {
+        "class": "fr.cafat.gpp.jms.PersonneMessaging",
+        "file": "src/main/java/fr/cafat/gpp/jms/PersonneMessaging.java",
+        "line": 21
+      }
+    },
+    {
+      "caller": "fr.cafat.gpp.jms.PersonneMessaging#publierEvenement",
+      "destination": "GPP.EVENEMENTS",
+      "destination_type": "topic",
+      "id": "s-gen-fixture:produce:topic:GPP.EVENEMENTS@fr.cafat.gpp.jms.PersonneMessaging#publierEvenement",
+      "raw_destination": "GPP.EVENEMENTS",
+      "role": "produce",
+      "source": {
+        "class": "fr.cafat.gpp.jms.PersonneMessaging",
+        "file": "src/main/java/fr/cafat/gpp/jms/PersonneMessaging.java",
+        "line": 25
+      }
+    }
+  ],
+  "relations": [
+    {
+      "field": "personne",
+      "from_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.Dossier",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Dossier.personne",
+      "inherited_from": null,
+      "inverse_join_columns": null,
+      "join_columns": [
+        "fk_dossier"
+      ],
+      "join_table": null,
+      "mapped_by": "dossier",
+      "optional": null,
+      "owning_side": false,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Dossier",
+        "file": "src/main/kotlin/fr/cafat/gpp/pg/domain/Dossier.kt",
+        "line": 21
+      },
+      "to_class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "to_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "type": "ONE_TO_ONE"
+    },
+    {
+      "field": "membres",
+      "from_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.Groupe",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.Groupe.membres",
+      "inherited_from": null,
+      "inverse_join_columns": [
+        "fk_personne"
+      ],
+      "join_columns": [
+        "fk_groupe"
+      ],
+      "join_table": {
+        "name": "gpp_personne_groupe",
+        "schema": "sgengpp"
+      },
+      "mapped_by": "groupes",
+      "optional": null,
+      "owning_side": false,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.Groupe",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/Groupe.java",
+        "line": 19
+      },
+      "to_class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "to_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "type": "MANY_TO_MANY"
+    },
+    {
+      "field": "personnePhysique",
+      "from_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact.personnePhysique",
+      "inherited_from": null,
+      "inverse_join_columns": null,
+      "join_columns": [
+        "fk_personne_physique"
+      ],
+      "join_table": null,
+      "mapped_by": null,
+      "optional": false,
+      "owning_side": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.MoyenContact",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/MoyenContact.java",
+        "line": 26
+      },
+      "to_class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "to_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "type": "MANY_TO_ONE"
+    },
+    {
+      "field": "alias",
+      "from_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique.alias",
+      "inherited_from": null,
+      "inverse_join_columns": null,
+      "join_columns": [
+        "fk_personne"
+      ],
+      "join_table": {
+        "name": "gpp_personne_alias",
+        "schema": "sgengpp"
+      },
+      "mapped_by": null,
+      "optional": null,
+      "owning_side": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/PersonnePhysique.java",
+        "line": 45
+      },
+      "to_class": "String",
+      "to_entity": null,
+      "type": "ELEMENT_COLLECTION"
+    },
+    {
+      "field": "dossier",
+      "from_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique.dossier",
+      "inherited_from": null,
+      "inverse_join_columns": null,
+      "join_columns": [
+        "fk_dossier"
+      ],
+      "join_table": null,
+      "mapped_by": null,
+      "optional": null,
+      "owning_side": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/PersonnePhysique.java",
+        "line": 40
+      },
+      "to_class": "fr.cafat.gpp.pg.domain.Dossier",
+      "to_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.Dossier",
+      "type": "ONE_TO_ONE"
+    },
+    {
+      "field": "groupes",
+      "from_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique.groupes",
+      "inherited_from": null,
+      "inverse_join_columns": [
+        "fk_groupe"
+      ],
+      "join_columns": [
+        "fk_personne"
+      ],
+      "join_table": {
+        "name": "gpp_personne_groupe",
+        "schema": "sgengpp"
+      },
+      "mapped_by": null,
+      "optional": null,
+      "owning_side": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/PersonnePhysique.java",
+        "line": 36
+      },
+      "to_class": "fr.cafat.gpp.pg.domain.Groupe",
+      "to_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.Groupe",
+      "type": "MANY_TO_MANY"
+    },
+    {
+      "field": "moyensContact",
+      "from_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique",
+      "id": "s-gen-fixture:fr.cafat.gpp.pg.domain.PersonnePhysique.moyensContact",
+      "inherited_from": null,
+      "inverse_join_columns": null,
+      "join_columns": [
+        "fk_personne_physique"
+      ],
+      "join_table": null,
+      "mapped_by": "personnePhysique",
+      "optional": null,
+      "owning_side": false,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.PersonnePhysique",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/PersonnePhysique.java",
+        "line": 30
+      },
+      "to_class": "fr.cafat.gpp.pg.domain.MoyenContact",
+      "to_entity": "s-gen-fixture:fr.cafat.gpp.pg.domain.MoyenContact",
+      "type": "ONE_TO_MANY"
+    }
+  ],
+  "sql_accesses": [
+    {
+      "caller": "fr.cafat.gpp.pg.repository.PersonneRepository#renommer",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:1df88fc4c4db22159d45282f0229112ab72a3c9e@fr.cafat.gpp.pg.repository.PersonneRepository#renommer",
+      "origin": "native_query",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.repository.PersonneRepository",
+        "file": "src/main/java/fr/cafat/gpp/pg/repository/PersonneRepository.java",
+        "line": 18
+      },
+      "sql": "UPDATE sgengpp.gpp_personne_physique SET nom = :nom WHERE numero_interne = :id",
+      "tables": [
+        {
+          "access": "write",
+          "name": "gpp_personne_physique",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.pg.dao.ContactDao#viderTemporaire",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:2a27507fdc70df25ef691919ef1de698389178ae@fr.cafat.gpp.pg.dao.ContactDao#viderTemporaire",
+      "origin": "string_literal",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.dao.ContactDao",
+        "file": "src/main/java/fr/cafat/gpp/pg/dao/ContactDao.java",
+        "line": 59
+      },
+      "sql": "TRUNCATE TABLE sgengpp.gpp_import_tmp",
+      "tables": [
+        {
+          "access": "write",
+          "name": "gpp_import_tmp",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.db2.mapper.GeoMapper#libellePays",
+      "datasource": "db400",
+      "id": "s-gen-fixture:sql:726043d31ddb910a2dce188d0f8703adf943e806@fr.cafat.gpp.db2.mapper.GeoMapper#libellePays",
+      "origin": "mybatis_annotation",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.db2.mapper.GeoMapper",
+        "file": "src/main/java/fr/cafat/gpp/db2/mapper/GeoMapper.java",
+        "line": 12
+      },
+      "sql": "SELECT LIBELLE FROM CAFGEO.GEO_PAYS WHERE CODE_PAYS = #{code}",
+      "tables": [
+        {
+          "access": "read",
+          "name": "GEO_PAYS",
+          "schema": "CAFGEO"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.pg.dao.ContactDao#groupes",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:75ab0152c31f114b1c5827832ff38b1b83ee7b6c@fr.cafat.gpp.pg.dao.ContactDao#groupes",
+      "origin": "named_parameter_jdbc_template",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.dao.ContactDao",
+        "file": "src/main/java/fr/cafat/gpp/pg/dao/ContactDao.java",
+        "line": 40
+      },
+      "sql": "SELECT * FROM sgengpp.gpp_groupe WHERE id IN (:ids)",
+      "tables": [
+        {
+          "access": "read",
+          "name": "gpp_groupe",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.pg.dao.ContactDao#ajouterCourriel",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:7bce714498ed2d663ad5ab48c166cf2ba2bdf3e5@fr.cafat.gpp.pg.dao.ContactDao#ajouterCourriel",
+      "origin": "jdbc_template",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.dao.ContactDao",
+        "file": "src/main/java/fr/cafat/gpp/pg/dao/ContactDao.java",
+        "line": 36
+      },
+      "sql": "INSERT INTO sgengpp.gpp_courriel (id_moyen_contact, adresse_mail) VALUES (?, ?)",
+      "tables": [
+        {
+          "access": "write",
+          "name": "gpp_courriel",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.db2.mapper.GeoMapper#findCommune",
+      "datasource": "db400",
+      "id": "s-gen-fixture:sql:80c37082bf8abf536bf34510334c890c77ded57f@fr.cafat.gpp.db2.mapper.GeoMapper#findCommune",
+      "origin": "mybatis_xml",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.db2.mapper.GeoMapper",
+        "file": "src/main/resources/mapper/GeoMapper.xml",
+        "line": 7
+      },
+      "sql": "SELECT CODE_COMMUNE, LIBELLE FROM CAFGEO.GEO_COMMUNE WHERE CODE_COMMUNE = #{code}",
+      "tables": [
+        {
+          "access": "read",
+          "name": "GEO_COMMUNE",
+          "schema": "CAFGEO"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.db2.mapper.GeoMapper#majLibelle",
+      "datasource": "db400",
+      "id": "s-gen-fixture:sql:8b197f11ea36ac7c11068cb7bbde946d60c31c55@fr.cafat.gpp.db2.mapper.GeoMapper#majLibelle",
+      "origin": "mybatis_xml",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.db2.mapper.GeoMapper",
+        "file": "src/main/resources/mapper/GeoMapper.xml",
+        "line": 13
+      },
+      "sql": "UPDATE CAFGEO.GEO_COMMUNE SET LIBELLE = #{libelle} WHERE CODE_COMMUNE = #{code}",
+      "tables": [
+        {
+          "access": "write",
+          "name": "GEO_COMMUNE",
+          "schema": "CAFGEO"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.pg.dao.ContactDao#purgerAlias",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:8d62e99367870e8bb3b030f0d69c2b67cee7e65b@fr.cafat.gpp.pg.dao.ContactDao#purgerAlias",
+      "origin": "jdbc_template",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.dao.ContactDao",
+        "file": "src/main/java/fr/cafat/gpp/pg/dao/ContactDao.java",
+        "line": 45
+      },
+      "sql": "DELETE FROM sgengpp.gpp_personne_alias WHERE alias IS NULL",
+      "tables": [
+        {
+          "access": "write",
+          "name": "gpp_personne_alias",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": null,
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:a3a30850463708aafca9a10821c1f3e129132a2f@fr.cafat.gpp.pg.domain.PGUnion",
+      "origin": "named_native_query",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.domain.PGUnion",
+        "file": "src/main/java/fr/cafat/gpp/pg/domain/PGUnion.java",
+        "line": 11
+      },
+      "sql": "SELECT * FROM sgengpp.gpp_union WHERE actif = 1",
+      "tables": [
+        {
+          "access": "read",
+          "name": "gpp_union",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.pg.repository.PersonneRepository#findByMoyenContact",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:adc41d610bda44f9b218f6241a4013e9d66ab490@fr.cafat.gpp.pg.repository.PersonneRepository#findByMoyenContact",
+      "origin": "native_query",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.repository.PersonneRepository",
+        "file": "src/main/java/fr/cafat/gpp/pg/repository/PersonneRepository.java",
+        "line": 12
+      },
+      "sql": "SELECT p.* FROM sgengpp.gpp_personne_physique p JOIN sgengpp.gpp_moyen_contact m ON m.fk_personne_physique = p.numero_interne WHERE m.id = :id",
+      "tables": [
+        {
+          "access": "read",
+          "name": "gpp_moyen_contact",
+          "schema": "sgengpp"
+        },
+        {
+          "access": "read",
+          "name": "gpp_personne_physique",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.pg.dao.ContactDao#evenements",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:cddc4ce32f938fa61052e98d4f029367149057c3@fr.cafat.gpp.pg.dao.ContactDao#evenements",
+      "origin": "jdbc_template",
+      "parsed": false,
+      "source": {
+        "class": "fr.cafat.gpp.pg.dao.ContactDao",
+        "file": "src/main/java/fr/cafat/gpp/pg/dao/ContactDao.java",
+        "line": 54
+      },
+      "sql": "SELECT * FROM sgengpp.gpp_evenement WHERE 1 = 1 AND type_evt = '{type}'",
+      "tables": [
+        {
+          "access": "read",
+          "name": "gpp_evenement",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.pg.dao.ContactDao#telephones",
+      "datasource": "pg",
+      "id": "s-gen-fixture:sql:d59e6d4050e92dba6106f061643310ca53991dd6@fr.cafat.gpp.pg.dao.ContactDao#telephones",
+      "origin": "jdbc_template",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.pg.dao.ContactDao",
+        "file": "src/main/java/fr/cafat/gpp/pg/dao/ContactDao.java",
+        "line": 32
+      },
+      "sql": "SELECT id_moyen_contact, numero FROM sgengpp.gpp_telephone WHERE id_moyen_contact = ?",
+      "tables": [
+        {
+          "access": "read",
+          "name": "gpp_telephone",
+          "schema": "sgengpp"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.db2.dao.AdresseDb2Dao#adresses",
+      "datasource": "db400",
+      "id": "s-gen-fixture:sql:e45168a9cdb6f316f16e702baaba0ecbd6bce271@fr.cafat.gpp.db2.dao.AdresseDb2Dao#adresses",
+      "origin": "jdbc_template",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.db2.dao.AdresseDb2Dao",
+        "file": "src/main/java/fr/cafat/gpp/db2/dao/AdresseDb2Dao.java",
+        "line": 19
+      },
+      "sql": "SELECT * FROM MGENGPP/VW_ADRESSE WHERE NUMERO_INTERNE = ?",
+      "tables": [
+        {
+          "access": "read",
+          "name": "VW_ADRESSE",
+          "schema": "MGENGPP"
+        }
+      ]
+    },
+    {
+      "caller": "fr.cafat.gpp.db2.repository.UnionRepository#rechercher",
+      "datasource": "db400",
+      "id": "s-gen-fixture:sql:f890b2ff318b366c50b542b0247db4048e782c8c@fr.cafat.gpp.db2.repository.UnionRepository#rechercher",
+      "origin": "native_query",
+      "parsed": true,
+      "source": {
+        "class": "fr.cafat.gpp.db2.repository.UnionRepository",
+        "file": "src/main/java/fr/cafat/gpp/db2/repository/UnionRepository.java",
+        "line": 12
+      },
+      "sql": "SELECT u.* FROM MGENGPP.V_UNION u WHERE u.LIBELLE LIKE ?1",
+      "tables": [
+        {
+          "access": "read",
+          "name": "V_UNION",
+          "schema": "MGENGPP"
+        }
+      ]
+    }
+  ]
+}

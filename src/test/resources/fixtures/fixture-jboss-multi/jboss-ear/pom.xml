@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>fr.cafat.legacy</groupId>
+    <artifactId>legacy-parent</artifactId>
+    <version>2.1.0</version>
+  </parent>
+  <artifactId>jboss-ear</artifactId>
+  <packaging>ear</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>fr.cafat.legacy</groupId>
+      <artifactId>jboss-ejb</artifactId>
+      <version>${project.version}</version>
+      <type>ejb</type>
+    </dependency>
+    <dependency>
+      <groupId>fr.cafat.legacy</groupId>
+      <artifactId>jboss-web</artifactId>
+      <version>${project.version}</version>
+      <type>war</type>
+    </dependency>
+  </dependencies>
+</project>

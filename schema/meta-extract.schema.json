@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cafat.nc/schemas/meta-extract/1.0/meta-extract.schema.json",
+  "title": "Métadonnées extraites d'une application Java/Kotlin",
+  "description": "Contrat 1.0 de java-meta-extractor. Toute propriété est présente ; une valeur inconnue vaut null.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "application", "entities", "relations", "sql_accesses", "endpoints", "calls", "messaging", "diagnostics"],
+  "properties": {
+    "contract_version": { "const": "1.0" },
+    "application": { "$ref": "#/$defs/application" },
+    "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+    "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
+    "sql_accesses": { "type": "array", "items": { "$ref": "#/$defs/sql_access" } },
+    "endpoints": { "type": "array", "items": { "$ref": "#/$defs/endpoint" } },
+    "calls": { "type": "array", "items": { "$ref": "#/$defs/call" } },
+    "messaging": { "type": "array", "items": { "$ref": "#/$defs/messaging" } },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "nullable_string": { "type": ["string", "null"], "minLength": 1 },
+    "nullable_integer": { "type": ["integer", "null"] },
+    "nullable_boolean": { "type": ["boolean", "null"] },
+    "string_list": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "nullable_string_list": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+    "http_method": { "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE", "ANY"] },
+
+    "source": {
+      "description": "Provenance : classe pleinement qualifiée, fichier relatif au dépôt (séparateur /), ligne 1-based.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "file", "line"],
+      "properties": {
+        "class": { "$ref": "#/$defs/nullable_string" },
+        "file": { "$ref": "#/$defs/nullable_string" },
+        "line": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+
+    "datasource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "jdbc_url", "jndi_name", "default_schema", "config_prefix", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["postgresql", "db2", "other", null] },
+        "jdbc_url": { "$ref": "#/$defs/nullable_string" },
+        "jndi_name": { "$ref": "#/$defs/nullable_string" },
+        "default_schema": { "$ref": "#/$defs/nullable_string" },
+        "config_prefix": { "$ref": "#/$defs/nullable_string" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "version", "tech", "repository", "commit", "module", "profiles", "context_path", "datasources"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/nullable_string" },
+        "tech": { "type": "array", "items": { "enum": ["spring-boot", "spring", "jboss", "ejb", "jax-rs", "jpa", "mybatis", "jms", "kotlin", "java"] } },
+        "repository": { "$ref": "#/$defs/nullable_string" },
+        "commit": { "$ref": "#/$defs/nullable_string" },
+        "module": { "$ref": "#/$defs/nullable_string" },
+        "profiles": { "$ref": "#/$defs/string_list" },
+        "context_path": { "$ref": "#/$defs/nullable_string" },
+        "datasources": { "type": "array", "items": { "$ref": "#/$defs/datasource" } }
+      }
+    },
+
+    "discriminator": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["column", "type", "value"],
+      "properties": {
+        "column": { "$ref": "#/$defs/nullable_string" },
+        "type": { "enum": ["STRING", "CHAR", "INTEGER", null] },
+        "value": { "$ref": "#/$defs/nullable_string" }
+      }
+    },
+
+    "inheritance": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["strategy", "root", "discriminator", "join_columns"],
+      "properties": {
+        "strategy": { "enum": ["JOINED", "SINGLE_TABLE", "TABLE_PER_CLASS"] },
+        "root": { "$ref": "#/$defs/nullable_string" },
+        "discriminator": { "$ref": "#/$defs/discriminator" },
+        "join_columns": { "$ref": "#/$defs/nullable_string_list" }
+      }
+    },
+
+    "secondary_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "name", "join_columns"],
+      "properties": {
+        "schema": { "$ref": "#/$defs/nullable_string" },
+        "name": { "type": "string", "minLength": 1 },
+        "join_columns": { "$ref": "#/$defs/nullable_string_list" }
+      }
+    },
+
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "field", "java_type", "table", "kind", "pk", "nullable", "unique", "length", "precision", "scale", "generated", "enum_values", "enum_storage", "references", "inherited_from"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nullable_string" },
+        "field": { "$ref": "#/$defs/nullable_string" },
+        "java_type": { "$ref": "#/$defs/nullable_string" },
+        "table": { "$ref": "#/$defs/nullable_string" },
+        "kind": { "enum": ["id", "basic", "version", "join", "pk_join", "discriminator"] },
+        "pk": { "type": "boolean" },
+        "nullable": { "$ref": "#/$defs/nullable_boolean" },
+        "unique": { "$ref": "#/$defs/nullable_boolean" },
+        "length": { "$ref": "#/$defs/nullable_integer" },
+        "precision": { "$ref": "#/$defs/nullable_integer" },
+        "scale": { "$ref": "#/$defs/nullable_integer" },
+        "generated": { "enum": ["AUTO", "IDENTITY", "SEQUENCE", "TABLE", "UUID", null] },
+        "enum_values": { "$ref": "#/$defs/nullable_string_list" },
+        "enum_storage": { "enum": ["ORDINAL", "STRING", null] },
+        "references": { "$ref": "#/$defs/nullable_string" },
+        "inherited_from": { "$ref": "#/$defs/nullable_string" }
+      }
+    },
+
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "class", "name", "kind", "datasource", "schema", "table", "is_view", "parent", "inheritance", "secondary_tables", "source", "columns"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "class": { "type": "string", "minLength": 1 },
+        "name": { "$ref": "#/$defs/nullable_string" },
+        "kind": { "enum": ["entity", "embeddable", "mapped_superclass"] },
+        "datasource": { "$ref": "#/$defs/nullable_string" },
+        "schema": { "$ref": "#/$defs/nullable_string" },
+        "table": { "$ref": "#/$defs/nullable_string" },
+        "is_view": { "$ref": "#/$defs/nullable_boolean" },
+        "parent": { "$ref": "#/$defs/nullable_string" },
+        "inheritance": { "$ref": "#/$defs/inheritance" },
+        "secondary_tables": { "type": "array", "items": { "$ref": "#/$defs/secondary_table" } },
+        "source": { "$ref": "#/$defs/source" },
+        "columns": { "type": "array", "items": { "$ref": "#/$defs/column" } }
+      }
+    },
+
+    "table_ref": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["schema", "name"],
+      "properties": {
+        "schema": { "$ref": "#/$defs/nullable_string" },
+        "name": { "$ref": "#/$defs/nullable_string" }
+      }
+    },
+
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from_entity", "to_entity", "to_class", "field", "type", "owning_side", "mapped_by", "join_columns", "inverse_join_columns", "join_table", "optional", "inherited_from", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "from_entity": { "$ref": "#/$defs/id" },
+        "to_entity": { "$ref": "#/$defs/nullable_string" },
+        "to_class": { "$ref": "#/$defs/nullable_string" },
+        "field": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["ONE_TO_ONE", "ONE_TO_MANY", "MANY_TO_ONE", "MANY_TO_MANY", "ELEMENT_COLLECTION"] },
+        "owning_side": { "type": "boolean" },
+        "mapped_by": { "$ref": "#/$defs/nullable_string" },
+        "join_columns": { "$ref": "#/$defs/nullable_string_list" },
+        "inverse_join_columns": { "$ref": "#/$defs/nullable_string_list" },
+        "join_table": { "$ref": "#/$defs/table_ref" },
+        "optional": { "$ref": "#/$defs/nullable_boolean" },
+        "inherited_from": { "$ref": "#/$defs/nullable_string" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "sql_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "name", "access"],
+      "properties": {
+        "schema": { "$ref": "#/$defs/nullable_string" },
+        "name": { "type": "string", "minLength": 1 },
+        "access": { "enum": ["read", "write"] }
+      }
+    },
+
+    "sql_access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "origin", "datasource", "sql", "tables", "parsed", "caller", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "origin": { "enum": ["native_query", "named_native_query", "jdbc_template", "named_parameter_jdbc_template", "mybatis_xml", "mybatis_annotation", "string_literal"] },
+        "datasource": { "$ref": "#/$defs/nullable_string" },
+        "sql": { "type": "string", "minLength": 1 },
+        "tables": { "type": "array", "items": { "$ref": "#/$defs/sql_table" } },
+        "parsed": { "type": "boolean" },
+        "caller": { "$ref": "#/$defs/nullable_string" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "framework", "method", "path", "handler", "request_type", "response_type", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "framework": { "enum": ["spring_mvc", "jax_rs"] },
+        "method": { "$ref": "#/$defs/http_method" },
+        "path": { "type": "string", "pattern": "^/" },
+        "handler": { "type": "string", "minLength": 1 },
+        "request_type": { "$ref": "#/$defs/nullable_string" },
+        "response_type": { "$ref": "#/$defs/nullable_string" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "call": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "client", "method", "raw_url", "resolved_url", "path", "target_app", "caller", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "client": { "enum": ["feign", "rest_template", "web_client", "rest_client", "jaxrs_client"] },
+        "method": { "oneOf": [{ "$ref": "#/$defs/http_method" }, { "type": "null" }] },
+        "raw_url": { "$ref": "#/$defs/nullable_string" },
+        "resolved_url": { "$ref": "#/$defs/nullable_string" },
+        "path": { "$ref": "#/$defs/nullable_string" },
+        "target_app": { "$ref": "#/$defs/nullable_string" },
+        "caller": { "$ref": "#/$defs/nullable_string" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "messaging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "destination_type", "raw_destination", "destination", "caller", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "role": { "enum": ["produce", "consume"] },
+        "destination_type": { "enum": ["queue", "topic", null] },
+        "raw_destination": { "$ref": "#/$defs/nullable_string" },
+        "destination": { "$ref": "#/$defs/nullable_string" },
+        "caller": { "$ref": "#/$defs/nullable_string" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "level", "code", "message", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "level": { "enum": ["error", "warning", "info"] },
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "message": { "type": "string", "minLength": 1 },
+        "source": { "oneOf": [{ "$ref": "#/$defs/source" }, { "type": "null" }] }
+      }
+    }
+  }
+}
