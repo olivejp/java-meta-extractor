@@ -16,6 +16,12 @@ public record Call(
     @JsonProperty("caller") String caller,
     @JsonProperty("source") Source source) {
 
+  /**
+   * Copie avec un autre id.
+   *
+   * @param newId id à poser (ex. id suffixé {@code ~2})
+   * @return nouvel appel, autres champs inchangés
+   */
   public Call withId(String newId) {
     return new Call(newId, client, method, rawUrl, resolvedUrl, path, targetApp, caller, source);
   }

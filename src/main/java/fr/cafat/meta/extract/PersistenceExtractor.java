@@ -14,12 +14,19 @@ import java.util.Map;
  */
 public final class PersistenceExtractor {
 
+  /** Brouillons d'entités par nom qualifié, et relations extraites. */
   public record Result(Map<String, EntityDraft> drafts, List<Relation> relations) {
   }
 
   private PersistenceExtractor() {
   }
 
+  /**
+   * Extrait entités, héritage et relations, dans cet ordre.
+   *
+   * @param ctx contexte de l'application
+   * @return brouillons d'entités par nom qualifié (colonnes héritées propagées) et relations
+   */
   public static Result run(ExtractionContext ctx) {
     Map<String, EntityDraft> drafts = new EntityExtractor(ctx).extract();
     InheritanceResolver inheritance = new InheritanceResolver(ctx, drafts);

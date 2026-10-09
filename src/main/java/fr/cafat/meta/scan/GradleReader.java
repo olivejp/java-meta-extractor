@@ -24,15 +24,32 @@ public final class GradleReader {
 
   private final Path root;
 
+  /**
+   * Prépare la lecture d'un build Gradle.
+   *
+   * @param root racine du dépôt
+   */
   public GradleReader(Path root) {
     this.root = root;
   }
 
+  /**
+   * Vrai si la racine porte un {@code build.gradle[.kts]} ou un {@code settings.gradle[.kts]}.
+   *
+   * @param root racine du dépôt
+   * @return vrai si l'un de ces fichiers existe
+   */
   public static boolean isGradle(Path root) {
     return Files.isRegularFile(root.resolve("build.gradle")) || Files.isRegularFile(root.resolve("build.gradle.kts"))
         || Files.isRegularFile(root.resolve("settings.gradle")) || Files.isRegularFile(root.resolve("settings.gradle.kts"));
   }
 
+  /**
+   * Modules du build Gradle : racine puis projets inclus par {@code settings.gradle[.kts]}.
+   *
+   * @return modules, racine en premier
+   * @throws IOException si un fichier de build est illisible
+   */
   public List<Module> read() throws IOException {
     List<Module> out = new ArrayList<>();
     String settings = readFirst(root.resolve("settings.gradle.kts"), root.resolve("settings.gradle"));

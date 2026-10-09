@@ -43,12 +43,22 @@ public final class MavenReader {
   private final Diagnostics diagnostics;
   private final Map<String, String> inheritedProps = new HashMap<>();
 
+  /**
+   * Prépare la lecture d'un build Maven.
+   *
+   * @param root racine du dépôt
+   * @param diagnostics collecteur des {@code CONFIG_PARSE_ERROR}
+   */
   public MavenReader(Path root, Diagnostics diagnostics) {
     this.root = root;
     this.diagnostics = diagnostics;
   }
 
-  /** Modules dans l'ordre de déclaration (parcours en profondeur depuis la racine). */
+  /**
+   * Modules dans l'ordre de déclaration (parcours en profondeur depuis la racine).
+   *
+   * @return modules, racine en premier ; liste vide si {@code pom.xml} absent à la racine
+   */
   public List<Module> read() {
     List<Module> out = new ArrayList<>();
     Path pom = root.resolve("pom.xml");

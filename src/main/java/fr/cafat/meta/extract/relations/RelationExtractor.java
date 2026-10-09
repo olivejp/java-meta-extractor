@@ -41,6 +41,13 @@ public final class RelationExtractor {
   private final Map<String, EntityDraft> drafts;
   private final Set<Association> declared = Collections.newSetFromMap(new IdentityHashMap<>());
 
+  /**
+   * Prépare l'extraction des relations.
+   *
+   * @param ctx contexte d'extraction de l'application (modèle, configuration, diagnostics)
+   * @param drafts brouillons d'entités par id, liés par {@link InheritanceResolver#link()} ; modifiés par
+   *     {@link #extract()}
+   */
   public RelationExtractor(ExtractionContext ctx, Map<String, EntityDraft> drafts) {
     this.ctx = ctx;
     this.naming = ctx.naming();
@@ -51,6 +58,11 @@ public final class RelationExtractor {
   private record Join(List<String> columns, List<String> inverseColumns, TableRef table) {
   }
 
+  /**
+   * Relations de tous les brouillons ; ajoute les colonnes de clé étrangère aux porteurs.
+   *
+   * @return relations, une par attribut d'association et par entité porteuse ; liste vide si aucune
+   */
   public List<Relation> extract() {
     List<Relation> out = new ArrayList<>();
     for (EntityDraft d : drafts.values()) {

@@ -32,6 +32,12 @@ public final class RepoScanner {
   private final List<Module> modules;
   private final Map<Module, List<Path>> filesByModule = new LinkedHashMap<>();
 
+  /**
+   * Lit les modules du dépôt et répartit ses fichiers par module.
+   *
+   * @param root racine absolue et normalisée du dépôt
+   * @param diagnostics collecteur des {@code CONFIG_PARSE_ERROR} et {@code NO_DEPLOYABLE_MODULE}
+   */
   public RepoScanner(Path root, Diagnostics diagnostics) {
     this.root = root;
     this.diagnostics = diagnostics;
@@ -39,10 +45,20 @@ public final class RepoScanner {
     assignFiles();
   }
 
+  /**
+   * Racine absolue du dépôt.
+   *
+   * @return racine passée au constructeur
+   */
   public Path root() {
     return root;
   }
 
+  /**
+   * Modules Maven ou Gradle du dépôt.
+   *
+   * @return modules sans doublon de répertoire ; un module racine {@code jar} si aucun build lisible
+   */
   public List<Module> modules() {
     return modules;
   }
@@ -138,10 +154,23 @@ public final class RepoScanner {
     return false;
   }
 
+  /**
+   * Fichiers du module, hors tests et répertoires de build, triés par chemin.
+   *
+   * @param m module du dépôt
+   * @return fichiers absolus ; liste vide si module inconnu
+   */
   public List<Path> files(Module m) {
     return filesByModule.getOrDefault(m, List.of());
   }
 
+  /**
+   * Fichiers des modules dont le nom finit par l'une des extensions, triés par chemin relatif.
+   *
+   * @param ms modules à parcourir
+   * @param extensions suffixes avec le point (ex. {@code .java})
+   * @return fichiers absolus ; liste vide si aucun
+   */
   public List<Path> files(List<Module> ms, String... extensions) {
     List<Path> out = new ArrayList<>();
     for (Module m : ms) {
@@ -159,10 +188,22 @@ public final class RepoScanner {
     return out;
   }
 
+  /**
+   * Chemin relatif à la racine, séparateur {@code /}.
+   *
+   * @param p chemin absolu sous la racine
+   * @return chemin relatif
+   */
   public String relative(Path p) {
     return root.relativize(p).toString().replace('\\', '/');
   }
 
+  /**
+   * Module le plus profond qui contient le fichier ; null si aucun.
+   *
+   * @param file chemin absolu
+   * @return module dont le répertoire contient le fichier ; null si hors de tout module
+   */
   public Module moduleOf(Path file) {
     Module best = null;
     for (Module m : modules) {
@@ -183,6 +224,8 @@ public final class RepoScanner {
   /**
    * EAR ; WAR hors EAR ; jar Spring Boot (annotation ou plugin) ; EJB hors EAR. Sans déployable,
    * le dépôt entier forme une unité ({@code NO_DEPLOYABLE_MODULE}).
+   *
+   * @return unités dans l'ordre des modules, avec leurs dépendances internes transitives ; jamais vide
    */
   public List<DeployableUnit> deployableUnits() {
     Map<String, Module> byKey = new LinkedHashMap<>();

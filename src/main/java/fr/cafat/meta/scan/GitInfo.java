@@ -31,6 +31,12 @@ public final class GitInfo {
     return Files.isDirectory(dotGit) ? dotGit : null;
   }
 
+  /**
+   * URL de {@code remote "origin"} lue dans {@code .git/config}, nettoyée.
+   *
+   * @param repo racine du dépôt ; {@code .git} répertoire ou fichier {@code gitdir:} (worktree)
+   * @return URL sans identifiants ni suffixe {@code .git} ; null si absente ou illisible
+   */
   public static String remoteOrigin(Path repo) {
     Path git = gitDir(repo);
     if (git == null) {
@@ -62,7 +68,12 @@ public final class GitInfo {
     return null;
   }
 
-  /** Supprime identifiants et suffixe .git : {@code https://u:p@h/x.git} → {@code https://h/x}. */
+  /**
+   * Supprime identifiants et suffixe .git : {@code https://u:p@h/x.git} → {@code https://h/x}.
+   *
+   * @param url URL git (HTTP ou SSH) ; null accepté
+   * @return URL nettoyée, sans « / » final ; null si url null ou vide
+   */
   public static String cleanUrl(String url) {
     if (url == null || url.isBlank()) {
       return null;
@@ -81,7 +92,13 @@ public final class GitInfo {
     return u.isEmpty() ? null : u;
   }
 
-  /** SHA complet de HEAD, ou null. */
+  /**
+   * SHA complet de HEAD, ou null.
+   *
+   * @param repo racine du dépôt
+   * @return SHA de 40 caractères lu dans HEAD, la référence pointée ou {@code packed-refs} ; null si
+   *     introuvable ou illisible
+   */
   public static String headCommit(Path repo) {
     Path git = gitDir(repo);
     if (git == null) {

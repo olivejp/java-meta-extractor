@@ -20,6 +20,12 @@ public record PersistenceUnit(
     Integer line,
     Path moduleDir) {
 
+  /**
+   * Première propriété non vide parmi des clés alternatives.
+   *
+   * @param keys noms de propriétés, par ordre de priorité
+   * @return valeur sans espaces de bord ; null si aucune
+   */
   public String property(String... keys) {
     for (String k : keys) {
       String v = properties.get(k);

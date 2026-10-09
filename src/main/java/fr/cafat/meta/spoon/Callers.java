@@ -13,8 +13,11 @@ public final class Callers {
   }
 
   /**
-   * Méthode ou constructeur englobant, lambdas traversées : {@code fqn#methode} ou {@code fqn#<init>} ;
-   * null hors de toute méthode (initialiseur de champ, annotation).
+   * Méthode ou constructeur englobant, lambdas traversées.
+   *
+   * @param e élément de code, ou l'exécutable lui-même ; obligatoire
+   * @return {@code fqn#methode} ou {@code fqn#<init>} ; null hors de toute méthode (initialiseur de champ,
+   *     annotation)
    */
   public static String of(CtElement e) {
     CtExecutable<?> exec = e instanceof CtExecutable<?> self && !(e instanceof CtLambda<?>)

@@ -36,6 +36,21 @@ public final class Assembler {
   private Assembler() {
   }
 
+  /**
+   * Résultat final : ids des diagnostics calculés, doublons exacts retirés, collisions suffixées,
+   * tableaux triés.
+   *
+   * @param app application ; technologies et sources de données triées ici
+   * @param entities entités ; colonnes et tables secondaires triées ici
+   * @param relations relations
+   * @param sql accès SQL ; tables dédoublonnées et triées ici
+   * @param endpoints endpoints exposés
+   * @param calls appels sortants
+   * @param messaging échanges JMS
+   * @param diagnostics diagnostics, id à null
+   * @return résultat conforme au contrat, tableaux triés par id ; les collisions d'id reçoivent
+   *     {@code ~2}, {@code ~3}… sauf pour les entités et les relations
+   */
   public static ExtractionResult assemble(Application app, List<Entity> entities,
       List<Relation> relations, List<SqlAccess> sql, List<Endpoint> endpoints, List<Call> calls,
       List<Messaging> messaging, List<Diagnostic> diagnostics) {

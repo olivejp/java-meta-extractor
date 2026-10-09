@@ -36,12 +36,21 @@ public final class EntityExtractor {
   private final ExtractionContext ctx;
   private final NamingStrategy naming;
 
+  /**
+   * Extracteur des classes persistantes de l'application.
+   *
+   * @param ctx contexte de l'application ; sa stratégie de nommage fixe les noms physiques
+   */
   public EntityExtractor(ExtractionContext ctx) {
     this.ctx = ctx;
     this.naming = ctx.naming();
   }
 
-  /** Classes persistantes dans l'ordre des noms qualifiés, indexées par nom qualifié. */
+  /**
+   * Classes persistantes dans l'ordre des noms qualifiés, indexées par nom qualifié.
+   *
+   * @return brouillons sans héritage ni relations résolus ; map vide si aucune classe persistante
+   */
   public Map<String, EntityDraft> extract() {
     Map<String, EntityDraft> drafts = new LinkedHashMap<>();
     for (CtType<?> t : ctx.types().all()) {
@@ -117,7 +126,14 @@ public final class EntityExtractor {
     }
   }
 
-  /** Annotation répétable, directe ou dans son conteneur, dans l'ordre du source. */
+  /**
+   * Annotation répétable, directe ou dans son conteneur, dans l'ordre du source.
+   *
+   * @param e élément annoté
+   * @param single nom simple de l'annotation JPA (ex. {@code JoinColumn})
+   * @param container nom simple de son conteneur (ex. {@code JoinColumns})
+   * @return annotations directes puis celles du conteneur ; liste vide si aucune
+   */
   public static List<CtAnnotation<?>> repeated(CtElement e, String single, String container) {
     List<CtAnnotation<?>> out = new ArrayList<>(Annotations.findAll(e, JPA, single));
     for (CtAnnotation<?> c : Annotations.findAll(e, JPA, container)) {

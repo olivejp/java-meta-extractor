@@ -29,15 +29,31 @@ public final class Provenance {
   private final Path root;
   private final Map<File, String> relativeCache = new HashMap<>();
 
+  /**
+   * Calculateur de provenance relatif à un dépôt.
+   *
+   * @param root racine du dépôt ; liens symboliques résolus si le chemin existe
+   */
   public Provenance(Path root) {
     this.root = realPath(root);
   }
 
+  /**
+   * Provenance complète de l'élément.
+   *
+   * @param element élément Spoon ; null accepté
+   * @return classe, fichier et ligne ; chaque champ null si inconnu
+   */
   public Source of(CtElement element) {
     return new Source(className(element), file(element), line(element));
   }
 
-  /** Nom qualifié du type (de plus haut niveau ou imbriqué) qui contient l'élément. */
+  /**
+   * Nom qualifié du type (de plus haut niveau ou imbriqué) qui contient l'élément.
+   *
+   * @param element élément Spoon ; null accepté
+   * @return nom qualifié du type englobant, ou l'élément lui-même s'il est un type ; null si aucun
+   */
   public static String className(CtElement element) {
     if (element == null) {
       return null;
@@ -46,6 +62,12 @@ public final class Provenance {
     return type == null ? null : type.getQualifiedName();
   }
 
+  /**
+   * Fichier de l'élément ou de son premier parent positionné.
+   *
+   * @param element élément Spoon ; null accepté
+   * @return chemin relatif au dépôt, séparateur {@code /} ; null si aucune position connue
+   */
   public String file(CtElement element) {
     for (CtElement e = element; e != null; e = e.isParentInitialized() ? e.getParent() : null) {
       Object meta = e.getMetadata(META_FILE);
@@ -60,6 +82,12 @@ public final class Provenance {
     return null;
   }
 
+  /**
+   * Ligne de l'élément ou de son premier parent positionné.
+   *
+   * @param element élément Spoon ; null accepté
+   * @return ligne 1-based (ligne du nom pour une déclaration) ; null si aucune position connue
+   */
   public Integer line(CtElement element) {
     for (CtElement e = element; e != null; e = e.isParentInitialized() ? e.getParent() : null) {
       Object meta = e.getMetadata(META_LINE);
@@ -81,6 +109,12 @@ public final class Provenance {
     return null;
   }
 
+  /**
+   * Vrai si l'élément ou l'un de ses parents vient d'un fichier Kotlin.
+   *
+   * @param element élément Spoon ; null accepté
+   * @return true si marqué {@link #LANG_KOTLIN} par la traduction Kotlin
+   */
   public static boolean isKotlin(CtElement element) {
     for (CtElement e = element; e != null; e = e.isParentInitialized() ? e.getParent() : null) {
       if (LANG_KOTLIN.equals(e.getMetadata(META_LANG))) {
@@ -90,7 +124,12 @@ public final class Provenance {
     return false;
   }
 
-  /** Position absolue servant à ordonner des éléments d'un même fichier. */
+  /**
+   * Position absolue servant à ordonner des éléments d'un même fichier.
+   *
+   * @param element élément Spoon ; obligatoire
+   * @return décalage en caractères depuis le début du fichier ; -1 si position inconnue
+   */
   public static int offset(CtElement element) {
     Object meta = element.getMetadata("meta.offset");
     if (meta instanceof Integer i) {
@@ -114,6 +153,12 @@ public final class Provenance {
     return lo + 1;
   }
 
+  /**
+   * Chemin relatif à la racine (liens symboliques résolus). Résultat mis en cache par fichier.
+   *
+   * @param file fichier ; obligatoire
+   * @return chemin relatif, séparateur {@code /} ; chemin absolu si hors du dépôt
+   */
   public String relative(File file) {
     return relativeCache.computeIfAbsent(file, f -> {
       Path p = realPath(f.toPath());
@@ -122,6 +167,12 @@ public final class Provenance {
     });
   }
 
+  /**
+   * Comme {@link #relative(File)}.
+   *
+   * @param path chemin ; obligatoire
+   * @return chemin relatif, séparateur {@code /} ; chemin absolu si hors du dépôt
+   */
   public String relative(Path path) {
     return relative(path.toFile());
   }

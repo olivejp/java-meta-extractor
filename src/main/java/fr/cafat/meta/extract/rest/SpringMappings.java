@@ -23,7 +23,13 @@ public final class SpringMappings {
   private SpringMappings() {
   }
 
-  /** Annotation de mapping portée par l'élément, ou null. */
+  /**
+   * Annotation de mapping portée par l'élément, ou null.
+   *
+   * @param element classe ou méthode
+   * @return premier {@code @RequestMapping}, {@code @GetMapping}… trouvé, dans cet ordre de noms ; null si
+   *     aucun
+   */
   public static CtAnnotation<?> find(CtElement element) {
     return Annotations.findAny(element, Annotations.SPRING_WEB, NAMES);
   }
@@ -31,6 +37,9 @@ public final class SpringMappings {
   /**
    * Méthodes HTTP déclarées : le verbe d'un {@code @XxxMapping}, sinon l'attribut {@code method} d'un
    * {@code @RequestMapping} (liste vide s'il est absent).
+   *
+   * @param mapping annotation de mapping ; null accepté
+   * @return verbes en majuscules ({@code GET}…), sans doublon ; liste vide si mapping null ou sans verbe
    */
   public static List<String> verbs(CtAnnotation<?> mapping) {
     if (mapping == null) {
@@ -50,7 +59,12 @@ public final class SpringMappings {
     return new ArrayList<>(out);
   }
 
-  /** Expression des chemins ({@code path}, sinon {@code value}), ou null. */
+  /**
+   * Expression des chemins ({@code path}, sinon {@code value}), ou null.
+   *
+   * @param mapping annotation de mapping ; null accepté
+   * @return expression brute (littéral, tableau, constante) ; null si mapping null ou sans chemin
+   */
   public static CtExpression<?> pathExpression(CtAnnotation<?> mapping) {
     return mapping == null ? null : Annotations.firstValue(mapping, "path", "value");
   }

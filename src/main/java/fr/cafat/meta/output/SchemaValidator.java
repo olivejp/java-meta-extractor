@@ -44,7 +44,13 @@ public final class SchemaValidator {
     return s;
   }
 
-  /** Messages d'erreur triés ; liste vide si la sortie est conforme. */
+  /**
+   * Messages d'erreur triés ; liste vide si la sortie est conforme.
+   *
+   * @param document arbre JSON d'un résultat
+   * @return messages de non-conformité au schéma, triés ; liste vide si conforme
+   * @throws IllegalStateException si le schéma est absent du classpath
+   */
   public static List<String> validate(JsonNode document) {
     Set<ValidationMessage> messages = schema().validate(document);
     List<String> out = new ArrayList<>();

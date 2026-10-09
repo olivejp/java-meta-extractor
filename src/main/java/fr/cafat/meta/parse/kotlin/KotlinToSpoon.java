@@ -141,9 +141,17 @@ public final class KotlinToSpoon {
   private final Map<String, Alias> aliases = new HashMap<>();
   private final Set<String> resolvingAliases = new HashSet<>();
 
+  /** Typealias sans paramètre de type : fichier porteur et déclaration. */
   private record Alias(FileUnit u, KtTypeAlias declaration) {
   }
 
+  /**
+   * Prépare la traduction Kotlin vers Spoon.
+   *
+   * @param factory fabrique Spoon du modèle Java, qui reçoit les types traduits
+   * @param repoRoot racine du dépôt, pour la provenance des éléments
+   * @param diagnostics collecteur des {@code PARSE_ERROR} et {@code KOTLIN_UNSUPPORTED}
+   */
   public KotlinToSpoon(Factory factory, Path repoRoot, Diagnostics diagnostics) {
     this.factory = factory;
     this.provenance = new Provenance(repoRoot);
@@ -235,6 +243,7 @@ public final class KotlinToSpoon {
     }
   }
 
+  /** Branche traduite d'un if/when : instructions préalables et valeur (null si la branche saute). */
   private record Branch(List<CtStatement> prefix, CtExpression<?> value) {
   }
 
@@ -242,7 +251,11 @@ public final class KotlinToSpoon {
   // Orchestration
   // ---------------------------------------------------------------------------------------------
 
-  /** Traduit les fichiers donnés ; les types créés sont ajoutés au modèle de la fabrique. */
+  /**
+   * Traduit les fichiers donnés ; les types créés sont ajoutés au modèle de la fabrique.
+   *
+   * @param ktFiles fichiers .kt ; doublons de chemin ignorés
+   */
   public void translate(List<Path> ktFiles) {
     Map<String, FileUnit> units = new TreeMap<>();
     for (Path p : ktFiles) {

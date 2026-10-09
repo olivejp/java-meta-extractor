@@ -11,6 +11,12 @@ public final class Hashes {
   private Hashes() {
   }
 
+  /**
+   * SHA-1 du texte encodé en UTF-8.
+   *
+   * @param text texte, obligatoire
+   * @return 40 caractères hexadécimaux minuscules
+   */
   public static String sha1(String text) {
     try {
       MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -20,6 +26,12 @@ public final class Hashes {
     }
   }
 
+  /**
+   * SHA-1 des octets.
+   *
+   * @param bytes octets, obligatoire
+   * @return 40 caractères hexadécimaux minuscules
+   */
   public static String sha1(byte[] bytes) {
     try {
       return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(bytes));

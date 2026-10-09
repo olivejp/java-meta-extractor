@@ -22,6 +22,19 @@ public final class WebModules {
   private WebModules() {
   }
 
+  /**
+   * Modules web de l'unité et leurs préfixes d'URL.
+   *
+   * <p>Spring Boot : un module racine ({@code server.servlet.context-path}, servlet MVC, Jersey).
+   * EAR/WAR : un module par WAR, contexte lu dans {@code application.xml}, puis
+   * {@code jboss-web.xml}, sinon nom de l'artefact.
+   *
+   * @param unit unité déployable
+   * @param config configuration effective de l'unité
+   * @param diagnostics collecteur des {@code CONFIG_PARSE_ERROR} (XML illisible)
+   * @param relative chemin relatif au dépôt, pour les diagnostics
+   * @return un module pour Spring Boot ou dépôt entier ; un par WAR sinon, liste vide si aucun WAR
+   */
   public static List<WebModule> detect(RepoScanner.DeployableUnit unit, Config config, Diagnostics diagnostics,
       java.util.function.Function<Path, String> relative) {
     if ("boot".equals(unit.kind()) || "repo".equals(unit.kind())) {
@@ -52,7 +65,12 @@ public final class WebModules {
     return out;
   }
 
-  /** Préfixe normalisé : "" pour la racine, sinon commence par "/" sans "/" final. */
+  /**
+   * Préfixe normalisé : "" pour la racine, sinon commence par "/" sans "/" final.
+   *
+   * @param path préfixe brut ; null accepté ; {@code /*} final retiré
+   * @return préfixe normalisé ; "" si null ou vide
+   */
   public static String normalize(String path) {
     if (path == null) {
       return "";

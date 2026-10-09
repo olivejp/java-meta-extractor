@@ -41,11 +41,23 @@ public record ExtractionContext(
     List<Path> resources,
     List<WebModule> webModules) {
 
+  /**
+   * Provenance de l'élément : classe, fichier relatif, ligne.
+   *
+   * @param element élément Spoon
+   * @return provenance ; champs à null quand ils sont inconnus
+   */
   public Source source(CtElement element) {
     return provenance.of(element);
   }
 
-  /** Module web contenant l'élément (répertoire le plus long), sinon l'unique module, sinon racine. */
+  /**
+   * Module web contenant l'élément (répertoire le plus long), sinon l'unique module, sinon racine.
+   *
+   * @param element élément Spoon
+   * @return module web ; {@link WebModule#ROOT} si aucun module ne contient l'élément et s'il en existe
+   *     plusieurs ou aucun
+   */
   public WebModule webModule(CtElement element) {
     String file = provenance.file(element);
     WebModule best = null;
@@ -61,14 +73,32 @@ public record ExtractionContext(
     return best;
   }
 
+  /**
+   * Id d'entité.
+   *
+   * @param qualifiedName nom qualifié de la classe persistante
+   * @return {@code <appId>:<nom qualifié>}
+   */
   public String entityId(String qualifiedName) {
     return appId + ":" + qualifiedName;
   }
 
+  /**
+   * Chemin relatif à la racine du dépôt.
+   *
+   * @param p chemin d'un fichier
+   * @return chemin relatif, séparateur {@code /} ; chemin absolu si hors du dépôt
+   */
   public String relative(Path p) {
     return provenance.relative(p);
   }
 
+  /**
+   * Vrai si le schéma figure dans {@code --view-schemas}.
+   *
+   * @param schema nom de schéma ; null accepté
+   * @return true si le schéma est un schéma de vues, insensible à la casse ; false si null
+   */
   public boolean isViewSchema(String schema) {
     if (schema == null) {
       return false;
@@ -81,7 +111,14 @@ public record ExtractionContext(
     return false;
   }
 
-  /** Valeur constante non vide d'un attribut d'annotation, sinon null. */
+  /**
+   * Valeur constante non vide d'un attribut d'annotation, sinon null.
+   *
+   * @param a annotation ; null accepté
+   * @param key nom de l'attribut (ex. {@code name})
+   * @return valeur évaluée (littéral ou constante) ; null si annotation, attribut ou valeur absent,
+   *     vide ou non constant
+   */
   public String str(CtAnnotation<?> a, String key) {
     CtExpression<?> e = Annotations.value(a, key);
     if (e == null) {
@@ -91,7 +128,13 @@ public record ExtractionContext(
     return v == null || v.isBlank() ? null : v;
   }
 
-  /** Entier d'un attribut d'annotation (littéral ou constante), sinon null. */
+  /**
+   * Entier d'un attribut d'annotation (littéral ou constante), sinon null.
+   *
+   * @param a annotation ; null accepté
+   * @param key nom de l'attribut (ex. {@code length})
+   * @return entier ; null si annotation ou attribut absent, ou valeur non entière
+   */
   public Integer integer(CtAnnotation<?> a, String key) {
     if (a == null) {
       return null;

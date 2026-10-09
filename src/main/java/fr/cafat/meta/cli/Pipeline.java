@@ -60,6 +60,13 @@ public final class Pipeline {
   /** Traduction Kotlin branchée par l'appelant (null : fichiers .kt ignorés avec un diagnostic). */
   @FunctionalInterface
   public interface KotlinFactory {
+    /**
+     * Étape de traduction pour le dépôt ; ses problèmes vont dans {@code diagnostics}.
+     *
+     * @param repoRoot racine absolue du dépôt, base des chemins relatifs
+     * @param diagnostics collecteur de l'unité analysée
+     * @return étape de traduction ; null pour ignorer les fichiers .kt ({@code KOTLIN_SKIPPED})
+     */
     SpoonLoader.KotlinStep create(Path repoRoot, Diagnostics diagnostics);
   }
 
@@ -86,6 +93,16 @@ public final class Pipeline {
   private Pipeline() {
   }
 
+  /**
+   * Analyse un dépôt : structure, configuration, modèle Spoon et extracteurs, pour chaque unité
+   * déployable.
+   *
+   * @param repo racine du dépôt, relative ou absolue
+   * @param options options de lancement (commit, nom imposé, profils, schémas de vues, Kotlin)
+   * @return un résultat par unité déployable, dans l'ordre du scan
+   * @throws fr.cafat.meta.extract.Failures.StepFailure si la lecture du dépôt, de la configuration
+   *     ou du code échoue
+   */
   public static List<Output> run(Path repo, Options options) {
     Path root = repo.toAbsolutePath().normalize();
     Diagnostics scanDiagnostics = new Diagnostics();

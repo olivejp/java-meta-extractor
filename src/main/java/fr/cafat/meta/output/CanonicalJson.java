@@ -30,15 +30,31 @@ public final class CanonicalJson {
   private CanonicalJson() {
   }
 
+  /**
+   * ObjectMapper partagé, entrées de Map triées par clé.
+   *
+   * @return instance partagée ; ne pas la reconfigurer
+   */
   public static ObjectMapper mapper() {
     return MAPPER;
   }
 
-  /** Arbre JSON aux clés triées récursivement. */
+  /**
+   * Arbre JSON aux clés triées récursivement.
+   *
+   * @param value objet sérialisable par Jackson (record du modèle, Map…)
+   * @return nouvel arbre
+   */
   public static JsonNode toTree(Object value) {
     return sortKeys(MAPPER.valueToTree(value));
   }
 
+  /**
+   * Copie de l'arbre aux clés d'objet triées récursivement.
+   *
+   * @param node arbre JSON
+   * @return nouvel arbre pour un objet ou un tableau ; {@code node} lui-même pour une valeur simple
+   */
   public static JsonNode sortKeys(JsonNode node) {
     if (node instanceof ObjectNode obj) {
       List<String> names = new ArrayList<>();
@@ -62,7 +78,13 @@ public final class CanonicalJson {
     return node;
   }
 
-  /** Octets UTF-8 de la forme canonique, terminés par un LF. */
+  /**
+   * Octets UTF-8 de la forme canonique, terminés par un LF.
+   *
+   * @param tree arbre JSON ; clés triées à nouveau avant écriture
+   * @return contenu du fichier de sortie
+   * @throws java.io.UncheckedIOException si Jackson échoue à sérialiser
+   */
   public static byte[] write(JsonNode tree) {
     try {
       String s = MAPPER.writer(new Printer()).writeValueAsString(sortKeys(tree));
@@ -72,7 +94,13 @@ public final class CanonicalJson {
     }
   }
 
-  /** Forme compacte et triée, pour les empreintes et départages. */
+  /**
+   * Forme compacte et triée, pour les empreintes et départages.
+   *
+   * @param value arbre JSON ou objet sérialisable par Jackson
+   * @return JSON sur une ligne, clés triées
+   * @throws java.io.UncheckedIOException si Jackson échoue à sérialiser
+   */
   public static String compact(Object value) {
     try {
       return MAPPER.writeValueAsString(sortKeys(value instanceof JsonNode n ? n : MAPPER.valueToTree(value)));
@@ -81,6 +109,12 @@ public final class CanonicalJson {
     }
   }
 
+  /**
+   * Valeur convertie en Map JSON (records, listes et valeurs imbriquées convertis).
+   *
+   * @param value objet JSON une fois sérialisé (record du modèle, Map…)
+   * @return map des propriétés JSON
+   */
   public static Map<String, Object> asMap(Object value) {
     return MAPPER.convertValue(value, new com.fasterxml.jackson.core.type.TypeReference<>() {
     });

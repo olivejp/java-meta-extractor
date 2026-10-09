@@ -33,6 +33,7 @@ public final class MyBatisXml {
   private static final Set<String> STATEMENTS = Set.of("select", "insert", "update", "delete");
   private static final int MAX_INCLUDE_DEPTH = 10;
 
+  /** Élément XML lu en flux : nom, attributs, enfants (texte ou {@code Node}), ligne. */
   private static final class Node {
     final String name;
     final Map<String, String> attributes = new LinkedHashMap<>();
@@ -52,7 +53,14 @@ public final class MyBatisXml {
   private MyBatisXml() {
   }
 
-  /** Requêtes du fichier, dans l'ordre du document ; liste vide si ce n'est pas un mapper. */
+  /**
+   * Requêtes du fichier, dans l'ordre du document ; liste vide si ce n'est pas un mapper.
+   *
+   * @param file fichier XML MyBatis
+   * @return requêtes {@code select|insert|update|delete}, fragments inclus
+   * @throws IOException si le fichier est illisible
+   * @throws XMLStreamException si le XML est mal formé
+   */
   public static List<Statement> read(Path file) throws IOException, XMLStreamException {
     try (InputStream in = Files.newInputStream(file)) {
       return read(in);
@@ -95,6 +103,9 @@ public final class MyBatisXml {
   /**
    * Contenu {@code <script>...</script>} d'une annotation MyBatis, lu comme le corps d'une requête
    * de mapper ; null s'il n'est pas du XML bien formé.
+   *
+   * @param script valeur de l'annotation, commençant par {@code <script>} (balise fermante facultative)
+   * @return requête unique, d'id {@code script} et de genre {@code select} ; null si XML mal formé
    */
   public static Statement script(String script) {
     String body = script.strip();
@@ -219,7 +230,12 @@ public final class MyBatisXml {
     return s == null ? "" : s;
   }
 
-  /** Vrai si le contenu XML déclare un mapper MyBatis (lecture rapide, avant analyse). */
+  /**
+   * Vrai si le contenu XML déclare un mapper MyBatis (lecture rapide, avant analyse).
+   *
+   * @param content texte du fichier XML
+   * @return vrai si le texte contient une balise {@code <mapper>}
+   */
   public static boolean isMapper(String content) {
     return MAPPER.matcher(content).find();
   }

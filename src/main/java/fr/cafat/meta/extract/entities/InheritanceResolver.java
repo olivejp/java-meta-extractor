@@ -29,6 +29,13 @@ public final class InheritanceResolver {
   private final Map<String, EntityDraft> drafts;
   private final Set<EntityDraft> linked = new HashSet<>();
 
+  /**
+   * Résolveur d'héritage pour les brouillons d'une application.
+   *
+   * @param ctx contexte de l'application
+   * @param drafts brouillons par nom qualifié, complétés sur place par {@link #link()} et
+   *     {@link #propagate()}
+   */
   public InheritanceResolver(ExtractionContext ctx, Map<String, EntityDraft> drafts) {
     this.ctx = ctx;
     this.naming = ctx.naming();
@@ -37,6 +44,7 @@ public final class InheritanceResolver {
 
   // ---------------------------------------------------------------- link
 
+  /** Relie chaque brouillon à son parent persistant ; calcule stratégie, racine, discriminateur et table. */
   public void link() {
     for (EntityDraft d : drafts.values()) {
       findParent(d);
@@ -141,6 +149,10 @@ public final class InheritanceResolver {
   /**
    * Colonnes de clé primaire d'une entité, en remontant la hiérarchie ; pour une sous-classe JOINED,
    * renommées selon ses colonnes de jointure.
+   *
+   * @param e brouillon ; null accepté
+   * @return colonnes de clé primaire du premier ancêtre qui en déclare ; liste vide si aucune ou
+   *     {@code e} null
    */
   public static List<Column> pkColumnsOf(EntityDraft e) {
     if (e == null) {
@@ -180,6 +192,10 @@ public final class InheritanceResolver {
 
   // ---------------------------------------------------------------- propagate
 
+  /**
+   * Recopie les colonnes héritées dans chaque brouillon. Après {@link #link()} et l'extraction des
+   * relations.
+   */
   public void propagate() {
     for (EntityDraft d : drafts.values()) {
       propagate(d);

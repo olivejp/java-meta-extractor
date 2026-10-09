@@ -74,6 +74,11 @@ public final class ValueEval {
   // « private final String url; » de classes différentes sont égaux) et son hashCode parcourt l'arbre.
   private final Map<CtElement, PartialString> cache = new IdentityHashMap<>();
 
+  /**
+   * Évaluateur sur les types du dépôt. Valeurs des champs mises en cache.
+   *
+   * @param index types du dépôt, pour retrouver champs et méthodes ; obligatoire
+   */
   public ValueEval(TypeIndex index) {
     this.index = index;
   }
@@ -94,17 +99,35 @@ public final class ValueEval {
     return Collections.newSetFromMap(new IdentityHashMap<>());
   }
 
+  /**
+   * Valeur statique de l'expression : littéraux, constantes, concaténations, appels du dépôt dépliés.
+   *
+   * @param e expression ; null accepté
+   * @return chaîne partielle ; morceau inconnu {@code {null}} si {@code e} est null, {@code {nom}} pour
+   *     ce qui n'est pas calculable
+   */
   public PartialString eval(CtExpression<?> e) {
     return eval(e, new Ctx(0, Map.of(), identitySet()));
   }
 
-  /** Évalue avec des paramètres liés, par exemple aux valeurs d'un site d'appel. */
+  /**
+   * Évalue avec des paramètres liés, par exemple aux valeurs d'un site d'appel.
+   *
+   * @param e expression ; null accepté
+   * @param bindings valeur de chaque paramètre lié ; un paramètre absent devient inconnu
+   * @return chaîne partielle, voir {@link #eval(CtExpression)}
+   */
   public PartialString eval(CtExpression<?> e, Map<CtParameter<?>, PartialString> bindings) {
     Map<CtParameter<?>, PartialString> b = new IdentityHashMap<>(bindings);
     return eval(e, new Ctx(0, b, identitySet()));
   }
 
-  /** Évalue chaque élément d'un tableau (ou l'expression seule). */
+  /**
+   * Évalue chaque élément d'un tableau (ou l'expression seule).
+   *
+   * @param e expression ou tableau ; null accepté
+   * @return une valeur par élément ; liste vide si {@code e} est null
+   */
   public List<PartialString> evalAll(CtExpression<?> e) {
     List<PartialString> out = new ArrayList<>();
     for (CtExpression<?> el : Annotations.flatten(e)) {
@@ -113,7 +136,12 @@ public final class ValueEval {
     return out;
   }
 
-  /** Valeur littérale complète, sinon null. */
+  /**
+   * Valeur littérale complète, sinon null.
+   *
+   * @param e expression ; null accepté
+   * @return texte complet, ou null si un morceau est inconnu ou {@code e} null
+   */
   public String constant(CtExpression<?> e) {
     if (e == null) {
       return null;
@@ -191,7 +219,12 @@ public final class ValueEval {
     return evalFieldDeclaration(field, ctx);
   }
 
-  /** Déclaration du champ lu, retrouvée par nom en noClasspath ; null si elle est hors du dépôt. */
+  /**
+   * Déclaration du champ lu, retrouvée par nom en noClasspath.
+   *
+   * @param fr lecture de champ ; obligatoire
+   * @return champ déclaré, ou null s'il est hors du dépôt
+   */
   public CtField<?> field(CtFieldRead<?> fr) {
     return fieldDeclaration(fr);
   }
@@ -225,7 +258,12 @@ public final class ValueEval {
     return null;
   }
 
-  /** Valeur d'un champ : @Value, constante, propriété de configuration, injection par constructeur. */
+  /**
+   * Valeur d'un champ : @Value, constante, propriété de configuration, injection par constructeur.
+   *
+   * @param field champ du dépôt ; obligatoire
+   * @return chaîne partielle ; {@code ${cle}} pour une propriété, {@code {nom}} si inconnue
+   */
   public PartialString evalFieldDeclaration(CtField<?> field) {
     return evalFieldDeclaration(field, new Ctx(0, Map.of(), identitySet()));
   }
@@ -334,7 +372,12 @@ public final class ValueEval {
     return v == null ? null : eval(v, ctx.deeper());
   }
 
-  /** Préfixe {@code @ConfigurationProperties} d'un type, ou null. */
+  /**
+   * Préfixe {@code @ConfigurationProperties} d'un type, ou null.
+   *
+   * @param type type ; null accepté
+   * @return préfixe constant ({@code prefix} ou {@code value}), ou null si absent, vide ou non constant
+   */
   public String configurationPrefix(CtType<?> type) {
     if (type == null) {
       return null;
@@ -911,7 +954,12 @@ public final class ValueEval {
     return sb.toString();
   }
 
-  /** {@code baseUrl} → {@code base-url} (forme canonique Spring). */
+  /**
+   * {@code baseUrl} → {@code base-url} (forme canonique Spring).
+   *
+   * @param camel nom en camelCase ou snake_case ; obligatoire
+   * @return nom en minuscules, mots séparés par {@code -}
+   */
   public static String kebab(String camel) {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < camel.length(); i++) {

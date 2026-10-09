@@ -34,12 +34,26 @@ public final class Xml {
   private Xml() {
   }
 
+  /**
+   * Lit le fichier XML, lignes des éléments comprises.
+   *
+   * @param file fichier XML
+   * @return document DOM ; préfixes d'espace de noms gardés dans les noms
+   * @throws IOException si le fichier est illisible ou le XML mal formé
+   */
   public static Document parse(Path file) throws IOException {
     try (InputStream in = Files.newInputStream(file)) {
       return parse(new InputSource(in));
     }
   }
 
+  /**
+   * Lit le flux XML, lignes des éléments comprises.
+   *
+   * @param source flux XML
+   * @return document DOM ; préfixes d'espace de noms gardés dans les noms
+   * @throws IOException si le XML est mal formé ou illisible
+   */
   public static Document parse(InputSource source) throws IOException {
     try {
       SAXParserFactory spf = SAXParserFactory.newInstance();
@@ -59,20 +73,36 @@ public final class Xml {
     }
   }
 
-  /** Ligne 1-based de l'élément, ou null. */
+  /**
+   * Ligne 1-based de l'élément, ou null.
+   *
+   * @param e élément lu par {@link #parse} ; null accepté
+   * @return ligne de la balise ouvrante ; null si e null ou lu hors de cette classe
+   */
   public static Integer line(Element e) {
     Object v = e == null ? null : e.getUserData(LINE);
     return v instanceof Integer i ? i : null;
   }
 
-  /** Nom local, sans préfixe d'espace de noms. */
+  /**
+   * Nom local, sans préfixe d'espace de noms.
+   *
+   * @param n nœud
+   * @return nom après le premier « : », sinon nom complet
+   */
   public static String localName(Node n) {
     String name = n.getNodeName();
     int i = name.indexOf(':');
     return i < 0 ? name : name.substring(i + 1);
   }
 
-  /** Enfants directs de nom local donné, dans l'ordre du document. */
+  /**
+   * Enfants directs de nom local donné, dans l'ordre du document.
+   *
+   * @param parent élément ; null accepté
+   * @param name nom local ; null pour tous les enfants
+   * @return enfants ; liste vide si parent null ou aucun enfant
+   */
   public static List<Element> children(Element parent, String name) {
     List<Element> out = new ArrayList<>();
     if (parent == null) {
@@ -87,12 +117,25 @@ public final class Xml {
     return out;
   }
 
+  /**
+   * Premier enfant direct de nom local donné ; null si absent.
+   *
+   * @param parent élément ; null accepté
+   * @param name nom local ; null pour le premier enfant
+   * @return premier enfant ; null si absent
+   */
   public static Element child(Element parent, String name) {
     List<Element> c = children(parent, name);
     return c.isEmpty() ? null : c.get(0);
   }
 
-  /** Texte d'un enfant direct, sans espaces de bord ; null si absent ou vide. */
+  /**
+   * Texte d'un enfant direct, sans espaces de bord ; null si absent ou vide.
+   *
+   * @param parent élément ; null accepté
+   * @param name nom local de l'enfant
+   * @return texte du premier enfant ; null si absent ou vide
+   */
   public static String childText(Element parent, String name) {
     Element c = child(parent, name);
     if (c == null) {
@@ -102,7 +145,13 @@ public final class Xml {
     return t.isEmpty() ? null : t;
   }
 
-  /** Descendants de nom local donné, dans l'ordre du document. */
+  /**
+   * Descendants de nom local donné, dans l'ordre du document.
+   *
+   * @param root élément de départ, exclu du résultat
+   * @param name nom local
+   * @return descendants ; liste vide si aucun
+   */
   public static List<Element> descendants(Element root, String name) {
     List<Element> out = new ArrayList<>();
     collect(root, name, out);

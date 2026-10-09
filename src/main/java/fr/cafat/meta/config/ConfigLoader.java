@@ -28,11 +28,21 @@ public final class ConfigLoader {
   private final Function<Path, String> relative;
   private final BiFunction<Path, String, String> buildFilter;
 
+  /**
+   * Chargeur sans filtrage des ressources par le build.
+   *
+   * @param diagnostics collecteur des {@code CONFIG_PARSE_ERROR} et {@code PROFILE_NOT_APPLIED}
+   * @param relative chemin d'un fichier relatif au dépôt, pour les provenances
+   */
   public ConfigLoader(Diagnostics diagnostics, Function<Path, String> relative) {
     this(diagnostics, relative, (file, text) -> text);
   }
 
   /**
+   * Chargeur avec filtrage des ressources par le build.
+   *
+   * @param diagnostics collecteur des {@code CONFIG_PARSE_ERROR} et {@code PROFILE_NOT_APPLIED}
+   * @param relative chemin d'un fichier relatif au dépôt, pour les provenances
    * @param buildFilter texte du fichier après le filtrage des ressources par le build
    *     ({@code @artifactId@}…), tel que Spring le lit dans le jar
    */
@@ -43,7 +53,13 @@ public final class ConfigLoader {
     this.buildFilter = buildFilter;
   }
 
-  /** Fichiers de configuration candidats (application*, bootstrap*). */
+  /**
+   * Fichiers de configuration candidats (application*, bootstrap*).
+   *
+   * @param p fichier à tester
+   * @return true si le nom commence par {@code application} ou {@code bootstrap} et finit par
+   *     {@code .yml}, {@code .yaml} ou {@code .properties}
+   */
   public static boolean isConfigFile(Path p) {
     String n = p.getFileName().toString();
     return (n.startsWith("application") || n.startsWith("bootstrap"))
@@ -51,8 +67,14 @@ public final class ConfigLoader {
   }
 
   /**
+   * Configuration effective : fichiers de base, documents conditionnés par profil, puis fichiers
+   * {@code -profil} de chaque profil demandé. Pour chaque nom, le premier fichier de {@code files} gagne.
+   *
    * @param files fichiers de configuration du module principal (puis des dépendances, en repli)
-   * @param profiles profils demandés, dans l'ordre
+   * @param profiles profils demandés, dans l'ordre ; liste vide : {@code PROFILE_NOT_APPLIED} si des
+   *     profils existent
+   * @return configuration chargée ; vide si aucun fichier lisible (fichier illisible :
+   *     {@code CONFIG_PARSE_ERROR})
    */
   public Config load(List<Path> files, List<String> profiles) {
     Config config = new Config();
@@ -145,7 +167,12 @@ public final class ConfigLoader {
     return nl < 0 ? s : s.substring(0, nl);
   }
 
-  /** UTF-8 strict, sinon ISO-8859-1. */
+  /**
+   * UTF-8 strict, sinon ISO-8859-1.
+   *
+   * @param bytes contenu brut du fichier
+   * @return texte décodé
+   */
   public static String decode(byte[] bytes) {
     try {
       return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)

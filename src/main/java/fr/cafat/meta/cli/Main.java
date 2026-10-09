@@ -43,6 +43,7 @@ public final class Main implements Callable<Integer> {
   static final int EXIT_USAGE = 3;
   private static final int MAX_SCHEMA_ERRORS = 20;
 
+  /** Cible exclusive : un dépôt ({@code --repo}) ou un répertoire de dépôts ({@code --repos-dir}). */
   static final class Target {
     @Option(names = "--repo", paramLabel = "DIR", description = "Dépôt à analyser.")
     Path repo;
@@ -95,6 +96,11 @@ public final class Main implements Callable<Integer> {
   static final Pipeline.KotlinFactory KOTLIN =
       (root, diagnostics) -> (factory, files) -> new KotlinToSpoon(factory, root, diagnostics).translate(files);
 
+  /**
+   * Lance la commande puis termine la JVM avec le code de sortie.
+   *
+   * @param args arguments de la ligne de commande (voir {@code --help})
+   */
   public static void main(String[] args) {
     System.exit(execute(args));
   }
@@ -250,6 +256,7 @@ public final class Main implements Callable<Integer> {
     return s.isEmpty() || s.startsWith(".") ? "_" + s : s;
   }
 
+  /** Version lue dans le manifeste du JAR ; {@code dev} hors JAR. */
   static final class Version implements CommandLine.IVersionProvider {
     @Override
     public String[] getVersion() {

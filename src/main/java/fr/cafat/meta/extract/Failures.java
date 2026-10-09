@@ -8,7 +8,12 @@ public final class Failures {
   private Failures() {
   }
 
-  /** « NullPointerException : message (à CallExtractor.java:451, CallExtractor.urlOf) », sur une ligne. */
+  /**
+   * « NullPointerException : message (à CallExtractor.java:451, CallExtractor.urlOf) », sur une ligne.
+   *
+   * @param e exception ; une {@code StepFailure} est remplacée par sa cause
+   * @return type simple, première ligne du message si présent, et position (voir {@link #where})
+   */
   public static String describe(Throwable e) {
     Throwable root = e;
     while (root.getCause() != null && root.getCause() != root && root instanceof StepFailure) {
@@ -24,7 +29,12 @@ public final class Failures {
         + (where == null ? "" : " (à " + where + ")");
   }
 
-  /** Première ligne de la pile dans le code de l'extracteur, sinon la toute première ; null si pile vide. */
+  /**
+   * Première ligne de la pile dans le code de l'extracteur, sinon la toute première ; null si pile vide.
+   *
+   * @param e exception
+   * @return {@code Fichier.java:ligne, Classe.méthode} ; null si pile vide
+   */
   public static String where(Throwable e) {
     StackTraceElement[] stack = e.getStackTrace();
     if (stack.length == 0) {
@@ -47,11 +57,22 @@ public final class Failures {
 
     private final String step;
 
+    /**
+     * Échec de l'étape {@code step}.
+     *
+     * @param step nom lisible de l'étape (ex. « lecture du code Java et Kotlin »)
+     * @param cause exception d'origine
+     */
     public StepFailure(String step, Throwable cause) {
       super(step + " : " + describe(cause), cause);
       this.step = step;
     }
 
+    /**
+     * Nom lisible de l'étape en échec.
+     *
+     * @return nom donné à la construction
+     */
     public String step() {
       return step;
     }

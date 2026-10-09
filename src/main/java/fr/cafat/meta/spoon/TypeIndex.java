@@ -19,6 +19,11 @@ public final class TypeIndex {
   private final Map<String, List<CtType<?>>> bySimpleName = new TreeMap<>();
   private final List<CtType<?>> all = new ArrayList<>();
 
+  /**
+   * Indexe tous les types du modèle, types imbriqués compris. Premier type gardé en cas de doublon.
+   *
+   * @param model modèle Spoon ; obligatoire
+   */
   public TypeIndex(CtModel model) {
     List<CtType<?>> roots = new ArrayList<>(model.getAllTypes());
     roots.sort(Comparator.comparing(CtType::getQualifiedName));
@@ -40,11 +45,21 @@ public final class TypeIndex {
     }
   }
 
-  /** Tous les types triés par nom qualifié. */
+  /**
+   * Tous les types triés par nom qualifié.
+   *
+   * @return types du dépôt, imbriqués compris ; liste interne, à ne pas modifier
+   */
   public List<CtType<?>> all() {
     return all;
   }
 
+  /**
+   * Type du dépôt de ce nom qualifié.
+   *
+   * @param qualifiedName nom qualifié ; null accepté
+   * @return type, ou null si absent du dépôt ou nom null
+   */
   public CtType<?> get(String qualifiedName) {
     return qualifiedName == null ? null : byQualifiedName.get(qualifiedName);
   }
@@ -52,6 +67,9 @@ public final class TypeIndex {
   /**
    * Résout une référence vers un type du dépôt : par nom qualifié, sinon (référence non résolue en
    * noClasspath) par nom simple s'il est unique.
+   *
+   * @param ref référence de type ; null accepté
+   * @return type du dépôt, ou null si absent, ambigu ou référence null
    */
   public CtType<?> resolve(CtTypeReference<?> ref) {
     if (ref == null) {
@@ -65,11 +83,22 @@ public final class TypeIndex {
     return candidates.size() == 1 ? candidates.get(0) : null;
   }
 
+  /**
+   * Types du dépôt de ce nom simple.
+   *
+   * @param simpleName nom simple
+   * @return types dans l'ordre d'indexation (parent avant ses types imbriqués) ; liste vide si aucun
+   */
   public List<CtType<?>> bySimpleName(String simpleName) {
     return bySimpleName.getOrDefault(simpleName, List.of());
   }
 
-  /** Sous-types directs (classe parente ou interface implémentée) d'un type du dépôt. */
+  /**
+   * Sous-types directs (classe parente ou interface implémentée) d'un type du dépôt.
+   *
+   * @param parent type du dépôt
+   * @return sous-types triés par nom qualifié ; liste vide si aucun
+   */
   public List<CtType<?>> directSubtypes(CtType<?> parent) {
     List<CtType<?>> out = new ArrayList<>();
     for (CtType<?> t : all) {

@@ -35,6 +35,18 @@ public final class DatasourceDetector {
   private DatasourceDetector() {
   }
 
+  /**
+   * Sources de données de la configuration ({@code *.url} JDBC, {@code *.jndi-name}) et des unités
+   * de persistance.
+   *
+   * <p>Préfixes de pool ({@code hikari}…) retirés ; préfixes Flyway, Liquibase, Batch… ignorés. URL
+   * nettoyée des secrets.
+   *
+   * @param config configuration effective de l'unité
+   * @param units unités de persistance des persistence.xml
+   * @return sources de la configuration triées par préfixe, puis une par unité de persistance ;
+   *     liste vide si aucune
+   */
   public static List<Detected> detect(Config config, List<PersistenceUnit> units) {
     Map<String, ConfigEntry> urlByPrefix = new LinkedHashMap<>();
     Map<String, ConfigEntry> jndiByPrefix = new LinkedHashMap<>();
@@ -162,9 +174,12 @@ public final class DatasourceDetector {
   }
 
   /**
-   * postgresql, db2 (jdbc:db2, jdbc:as400), other ; null si rien ne permet de le dire.
+   * Type de base : postgresql, db2 (jdbc:db2, jdbc:as400), other ; null si rien ne permet de le dire.
    *
-   * @param dialect dialecte Hibernate ou classe du pilote JDBC, en repli de l'URL
+   * @param url URL JDBC, prioritaire ; null accepté
+   * @param dialect dialecte Hibernate ou classe du pilote JDBC, en repli de l'URL ; null accepté
+   * @return {@code postgresql}, {@code db2} ou {@code other} ; null si l'URL est absente ou non
+   *     JDBC et le dialecte absent
    */
   public static String kindOf(String url, String dialect) {
     if (url != null) {

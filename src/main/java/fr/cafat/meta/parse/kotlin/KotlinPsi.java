@@ -46,7 +46,11 @@ public final class KotlinPsi {
     this.factory = new KtPsiFactory(project, false);
   }
 
-  /** Instance partagée, créée paresseusement et de façon sûre entre threads. */
+  /**
+   * Instance partagée, créée paresseusement et de façon sûre entre threads.
+   *
+   * @return instance unique ; le premier appel démarre l'environnement du compilateur Kotlin (coûteux)
+   */
   public static KotlinPsi get() {
     KotlinPsi local = instance;
     if (local == null) {
@@ -64,6 +68,10 @@ public final class KotlinPsi {
   /**
    * Parse un texte Kotlin. Les erreurs de syntaxe ne lèvent pas d'exception : elles apparaissent
    * comme des {@code PsiErrorElement} dans l'arbre.
+   *
+   * @param fileName nom du fichier, extension {@code .kt} ou {@code .kts}
+   * @param text contenu brut du fichier, normalisé par {@link #normalize(String)}
+   * @return arbre PSI du fichier ; offsets relatifs au texte normalisé
    */
   public KtFile parse(String fileName, String text) {
     String normalized = normalize(text);
@@ -75,6 +83,9 @@ public final class KotlinPsi {
   /**
    * Texte tel que vu par le PSI : fins de ligne LF et pas de BOM. Les offsets du PSI se rapportent à
    * ce texte, pas au contenu brut du fichier.
+   *
+   * @param text contenu brut, obligatoire
+   * @return texte aux fins de ligne LF, sans BOM initial
    */
   public static String normalize(String text) {
     String normalized = text.replace("\r\n", "\n").replace('\r', '\n');

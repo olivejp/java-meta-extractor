@@ -37,7 +37,12 @@ public record ResourceFiltering(Map<String, String> properties, boolean defaultD
   private static final Pattern AT_TOKEN = Pattern.compile("@([A-Za-z0-9_.\\-]+)@");
   private static final Pattern DOLLAR_TOKEN = Pattern.compile("\\$\\{([A-Za-z0-9_.\\-]+)}");
 
-  /** Vrai si le fichier est copié avec filtrage. */
+  /**
+   * Vrai si le fichier est copié avec filtrage.
+   *
+   * @param file chemin absolu
+   * @return filtrage de la dernière ressource qui couvre le fichier ; faux si aucune
+   */
   public boolean filters(Path file) {
     boolean filtered = false;
     for (Resource r : resources) {
@@ -48,7 +53,13 @@ public record ResourceFiltering(Map<String, String> properties, boolean defaultD
     return filtered;
   }
 
-  /** Texte du fichier tel que Maven le place dans le jar. */
+  /**
+   * Texte du fichier tel que Maven le place dans le jar.
+   *
+   * @param file chemin absolu
+   * @param text contenu décodé
+   * @return texte aux jetons connus remplacés ; texte inchangé si fichier non filtré
+   */
   public String apply(Path file, String text) {
     if (!filters(file)) {
       return text;

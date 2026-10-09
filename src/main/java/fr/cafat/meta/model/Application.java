@@ -3,6 +3,10 @@ package fr.cafat.meta.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
+/**
+ * Application déployable analysée : identité, version, technologies, dépôt, commit, profils et
+ * sources de données.
+ */
 public record Application(
     @JsonProperty("id") String id,
     @JsonProperty("name") String name,

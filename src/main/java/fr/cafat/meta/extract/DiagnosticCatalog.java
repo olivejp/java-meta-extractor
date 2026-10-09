@@ -137,15 +137,31 @@ public final class DiagnosticCatalog {
     ENTRIES.put(code, new Entry(title, origin, impact, action));
   }
 
+  /**
+   * Explication d'un code de diagnostic.
+   *
+   * @param code code de diagnostic (ex. {@code URL_UNRESOLVED})
+   * @return entrée du catalogue ; {@link #UNKNOWN} si le code est absent du catalogue
+   */
   public static Entry of(String code) {
     return ENTRIES.getOrDefault(code, UNKNOWN);
   }
 
+  /**
+   * Vrai si le code est documenté dans le catalogue.
+   *
+   * @param code code de diagnostic
+   * @return true si le catalogue contient le code
+   */
   public static boolean has(String code) {
     return ENTRIES.containsKey(code);
   }
 
-  /** Tous les codes documentés, triés. */
+  /**
+   * Tous les codes documentés, triés.
+   *
+   * @return vue non modifiable du catalogue, par code
+   */
   public static Map<String, Entry> all() {
     return Collections.unmodifiableMap(ENTRIES);
   }

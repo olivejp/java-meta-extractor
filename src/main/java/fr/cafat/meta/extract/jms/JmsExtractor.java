@@ -97,10 +97,20 @@ public final class JmsExtractor {
   /** Destinations déclarées en {@code @Bean} (Queue, Topic, Destination) : nom → destination. */
   private final Map<String, Dest> destinationBeans = new TreeMap<>();
 
+  /**
+   * Prépare l'extraction des échanges JMS.
+   *
+   * @param ctx contexte d'extraction de l'application (modèle, configuration, diagnostics)
+   */
   public JmsExtractor(ExtractionContext ctx) {
     this.ctx = ctx;
   }
 
+  /**
+   * Producteurs et consommateurs JMS de tous les types du dépôt.
+   *
+   * @return échanges dans l'ordre de parcours des types ; liste vide si aucun
+   */
   public List<Messaging> extract() {
     collectPubSubBeans();
     collectDestinationBeans();

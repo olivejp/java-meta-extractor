@@ -30,6 +30,12 @@ public final class SpoonLoader {
   /** Étape de traduction Kotlin, branchée par l'appelant. */
   @FunctionalInterface
   public interface KotlinStep {
+    /**
+     * Ajoute au modèle de {@code factory} les types traduits des fichiers Kotlin.
+     *
+     * @param factory fabrique Spoon du modèle à compléter
+     * @param ktFiles fichiers .kt, non vide
+     */
     void translate(Factory factory, List<Path> ktFiles);
   }
 
@@ -53,6 +59,18 @@ public final class SpoonLoader {
     }
   }
 
+  /**
+   * Construit le modèle Spoon en noClasspath, puis y traduit les fichiers Kotlin.
+   *
+   * <p>Fichier Java syntaxiquement invalide : écarté, diagnostic {@code PARSE_ERROR}.
+   *
+   * @param javaFiles fichiers .java à analyser
+   * @param ktFiles fichiers .kt à traduire ; liste vide si aucun
+   * @param kotlin traduction Kotlin ; si null, les fichiers .kt sont ignorés
+   * @param diagnostics collecteur des {@code PARSE_ERROR}
+   * @param relative chemin relatif au dépôt, pour les diagnostics
+   * @return modèle Spoon, partiel si la construction a échoué
+   */
   public static CtModel load(List<Path> javaFiles, List<Path> ktFiles, KotlinStep kotlin,
       Diagnostics diagnostics, Function<Path, String> relative) {
     Launcher launcher = new Launcher();
@@ -127,7 +145,12 @@ public final class SpoonLoader {
     return nl < 0 ? s : s.substring(0, nl);
   }
 
-  /** Décodage d'un fichier texte du dépôt (UTF-8 strict, sinon ISO-8859-1). */
+  /**
+   * Décodage d'un fichier texte du dépôt (UTF-8 strict, sinon ISO-8859-1).
+   *
+   * @param bytes contenu brut du fichier
+   * @return texte décodé en UTF-8 ; en ISO-8859-1 si les octets sont du UTF-8 invalide
+   */
   public static String decode(byte[] bytes) {
     return ConfigLoader.decode(bytes);
   }

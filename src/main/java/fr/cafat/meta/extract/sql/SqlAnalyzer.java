@@ -64,12 +64,23 @@ public final class SqlAnalyzer {
   private SqlAnalyzer() {
   }
 
-  /** Vrai si le texte commence comme une requête SQL et contient une clause de table. */
+  /**
+   * Vrai si le texte commence comme une requête SQL et contient une clause de table.
+   *
+   * @param text texte candidat ; null accepté
+   * @return vrai si le texte commence par SELECT, INSERT, UPDATE, DELETE, MERGE, WITH, TRUNCATE ou UPSERT
+   *     et contient FROM, INTO, SET, TABLE ou USING ; faux si null
+   */
   public static boolean looksLikeSql(String text) {
     return text != null && START.matcher(text).find() && CLAUSE.matcher(text).find();
   }
 
-  /** Blancs successifs réduits à une espace hors des littéraux entre apostrophes ; texte rogné. */
+  /**
+   * Blancs successifs réduits à une espace hors des littéraux entre apostrophes ; texte rogné.
+   *
+   * @param sql texte SQL, obligatoire
+   * @return texte normalisé, sans blanc en début ni en fin
+   */
   public static String normalize(String sql) {
     StringBuilder sb = new StringBuilder(sql.length());
     boolean quoted = false;
@@ -92,7 +103,12 @@ public final class SqlAnalyzer {
     return sb.toString();
   }
 
-  /** Paramètres MyBatis {@code #{x}} et {@code ${x}} remplacés par {@code ?} pour le parseur. */
+  /**
+   * Paramètres MyBatis {@code #{x}} et {@code ${x}} remplacés par {@code ?} pour le parseur.
+   *
+   * @param sql texte SQL MyBatis, obligatoire
+   * @return texte analysable par JSqlParser
+   */
   public static String withoutMyBatisParams(String sql) {
     return MYBATIS_PARAM.matcher(sql).replaceAll("?");
   }
@@ -100,6 +116,9 @@ public final class SqlAnalyzer {
   /**
    * Remplace les paramètres JDBI par {@code ?} pour l'analyse : paramètres nommés ({@code :x},
    * {@code :bean.champ}) et attributs ou listes substitués ({@code <x>}).
+   *
+   * @param sql texte SQL JDBI, obligatoire
+   * @return texte analysable par JSqlParser ; transtypages PostgreSQL {@code ::type} gardés
    */
   public static String withoutJdbiParams(String sql) {
     return JDBI_DEFINE.matcher(JDBI_NAMED.matcher(sql).replaceAll("?")).replaceAll("?");
@@ -114,6 +133,16 @@ public final class SqlAnalyzer {
     return HIBERNATE_ALIAS.matcher(out).replaceAll("$1");
   }
 
+  /**
+   * Tables lues et écrites par le SQL, via JSqlParser.
+   *
+   * <p>Si JSqlParser rejette le texte : repli lexical, analyse marquée non parsée.
+   *
+   * @param sql texte SQL, paramètres déjà remplacés par {@code ?} ; {@code {h-schema}} et {@code {alias.*}}
+   *     acceptés
+   * @return tables triées et dédoublonnées ; {@code parsed} faux et {@code error} = première ligne du
+   *     message de JSqlParser si le texte est rejeté
+   */
   public static Analysis analyze(String sql) {
     String text = systemNaming(withoutHibernatePlaceholders(sql));
     try {

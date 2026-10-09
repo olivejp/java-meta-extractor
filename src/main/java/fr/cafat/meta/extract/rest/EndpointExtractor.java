@@ -50,10 +50,20 @@ public final class EndpointExtractor {
   private final Map<WebModule, List<String>> applicationPaths = new HashMap<>();
   private final List<Endpoint> out = new ArrayList<>();
 
+  /**
+   * Prépare l'extraction des endpoints exposés.
+   *
+   * @param ctx contexte d'extraction de l'application (modèle, configuration, diagnostics)
+   */
   public EndpointExtractor(ExtractionContext ctx) {
     this.ctx = ctx;
   }
 
+  /**
+   * Endpoints des contrôleurs Spring MVC et des ressources JAX-RS concrets.
+   *
+   * @return un endpoint par couple méthode HTTP × chemin, ids non suffixés ; liste vide si aucun
+   */
   public List<Endpoint> extract() {
     for (CtType<?> t : ctx.types().all()) {
       if (!(t instanceof CtClass<?> c) || c.isAbstract() || c.isAnonymous() || c.isLocalType()) {
@@ -338,7 +348,12 @@ public final class EndpointExtractor {
     return sb.toString();
   }
 
-  /** Concatène les segments, normalise les « / » et les variables de chemin. */
+  /**
+   * Concatène les segments, normalise les « / » et les variables de chemin.
+   *
+   * @param segments morceaux de chemin, dans l'ordre ; segments null ou vides ignorés
+   * @return chemin commençant par « / », sans « / » final ; « / » si tous les segments sont vides
+   */
   public static String path(String... segments) {
     StringBuilder sb = new StringBuilder();
     for (String s : segments) {
@@ -358,7 +373,12 @@ public final class EndpointExtractor {
     return p.isEmpty() ? "/" : p;
   }
 
-  /** {@code {id:\d+}} ou {@code {id: [0-9]+}} ⇒ {@code {id}} ; les placeholders {@code ${...}} sont gardés. */
+  /**
+   * {@code {id:\d+}} ou {@code {id: [0-9]+}} ⇒ {@code {id}} ; les placeholders {@code ${...}} sont gardés.
+   *
+   * @param path chemin d'URL, obligatoire
+   * @return chemin aux variables réduites à leur nom ; accolade non fermée gardée telle quelle
+   */
   public static String normalizeVariables(String path) {
     StringBuilder sb = new StringBuilder();
     int i = 0;

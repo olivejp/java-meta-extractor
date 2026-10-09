@@ -4,6 +4,27 @@ Extracteur déterministe de métadonnées pour les dépôts Java et Kotlin de la
 
 L'outil n'effectue aucun appel réseau, n'utilise aucun LLM, ne touche à aucune base et n'écrit ni date ni valeur aléatoire. Deux exécutions sur le même commit produisent des fichiers identiques octet pour octet.
 
+## Fonctionnement
+
+`cli/Main` lit les options puis appelle `cli/Pipeline.run` pour chaque dépôt. Le pipeline produit un résultat par unité déployable, que `Main` valide et écrit.
+
+```text
+dépôt ─► 1 inventaire ─► 2 configuration ─► 3 lecture du code ─► 4 extraction ─► 5 sources de données ─► 6 assemblage ─► out/<app>.json
+```
+
+| # | Étape | Classes | Résultat |
+|---|---|---|---|
+| 1 | Inventaire (`scan/`) | `RepoScanner`, `MavenReader`, `GradleReader`, `GitInfo` | Modules, fichiers par module (tests et répertoires de build exclus), unités déployables, origine et commit git. |
+| 2 | Configuration (`config/`) | `ConfigLoader`, `PersistenceXmlReader`, `Secrets` | Par unité : `bootstrap*` et `application*` fusionnés avec les profils demandés, filtrage Maven appliqué, secrets masqués ; unités de persistance. |
+| 3 | Lecture du code (`parse/`, `spoon/`) | `SpoonLoader`, `KotlinToSpoon`, `TypeIndex`, `ValueEval` | Modèle Spoon (`noClasspath`) du Java et du Kotlin traduit ; index des types ; évaluation statique des chaînes (constantes, concaténations, `${…}`). |
+| 4 | Extraction (`extract/`) | `PersistenceExtractor` (`EntityExtractor`, `InheritanceResolver`, `RelationExtractor`), `SqlExtractor` + `SqlAnalyzer`, `EndpointExtractor`, `CallExtractor`, `JmsExtractor` | Entités et colonnes, héritage, relations, accès SQL et tables, endpoints, appels HTTP sortants, échanges JMS. |
+| 5 | Sources de données (`config/`, `resolve/`) | `DatasourceDetector`, `DatasourceResolver` | Sources lues dans la configuration ; entités, SQL et tables de jointure rattachés à leur source ; schéma par défaut ; `is_view`. |
+| 6 | Assemblage (`output/`, `cli/`) | `Assembler`, `CanonicalJson`, `SchemaValidator`, `Report` | Ids calculés, doublons retirés, tableaux triés ; JSON canonique validé par le schéma ; rapport sur stderr. |
+
+Tous les extracteurs reçoivent un `ExtractionContext` : modèle, index des types, évaluateur, configuration, stratégie de nommage, ressources XML, modules web et collecteur de `Diagnostics`. Ce qui n'est pas déterminable devient `null` et un diagnostic, jamais une valeur devinée.
+
+Les étapes 1 à 3 sont bloquantes : un échec arrête le dépôt (code 3). Les étapes 4 et 5 sont isolées : un échec donne `EXTRACTION_STEP_FAILED` et les autres étapes continuent (voir « Lire les erreurs »).
+
 ## Construire
 
 Java 21 et Maven 3.9 sont nécessaires. Le réseau ne sert qu'au build, pour télécharger les dépendances.
@@ -144,7 +165,7 @@ Le fichier est encodé en UTF-8, avec les clés triées, les tableaux triés par
 | `messaging` | `app:produce\|consume:queue\|topic\|?:<destination>@Classe#méthode` |
 | `diagnostics` | `app:CODE:<12 premiers caractères du sha1 du contenu>` |
 
-Deux objets distincts qui ont le même `id` reçoivent les suffixes `~2`, `~3`… Ces suffixes suivent l'ordre fichier, ligne, puis contenu. Aucun compteur global n'est utilisé.
+Dans `sql_accesses`, `endpoints`, `calls`, `messaging` et `diagnostics`, deux objets distincts qui ont le même `id` reçoivent les suffixes `~2`, `~3`… Ces suffixes suivent l'ordre fichier, ligne, puis contenu. Aucun compteur global n'est utilisé.
 
 Les fichiers de référence des fixtures sont dans `src/test/resources/golden/`.
 

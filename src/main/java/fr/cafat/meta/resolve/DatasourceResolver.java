@@ -73,6 +73,7 @@ import spoon.reflect.visitor.filter.TypeFilter;
  */
 public final class DatasourceResolver {
 
+  /** Accès SQL et relations avec source de données et schéma par défaut appliqués. */
   public record Result(List<SqlAccess> sqlAccesses, List<Relation> relations) {
   }
 
@@ -122,6 +123,13 @@ public final class DatasourceResolver {
   private final List<PackageRule> mapperPackages = new ArrayList<>();
   private final Map<String, Set<String>> listedClasses = new HashMap<>();
 
+  /**
+   * Prépare le rattachement aux sources de données.
+   *
+   * @param ctx contexte d'extraction de l'application (modèle, configuration, diagnostics)
+   * @param detected sources détectées par {@code DatasourceDetector}, avec leur unité de persistance
+   * @param drafts brouillons d'entités par id ; modifiés par {@link #resolve(List, List)}
+   */
   public DatasourceResolver(ExtractionContext ctx, List<Detected> detected, Map<String, EntityDraft> drafts) {
     this.ctx = ctx;
     this.drafts = drafts;
@@ -138,6 +146,16 @@ public final class DatasourceResolver {
     }
   }
 
+  /**
+   * Rattache entités, accès SQL et tables de jointure à leur source de données.
+   *
+   * <p>Modifie les brouillons d'entités : source, schéma par défaut, {@code is_view}. Émet
+   * {@code DATASOURCE_AMBIGUOUS} et {@code ENTITY_UNREFERENCED}.
+   *
+   * @param sql brouillons d'accès SQL avec leur indice de source
+   * @param relations relations extraites, table de jointure sans schéma par défaut
+   * @return accès SQL et relations dans l'ordre reçu ; source null si non rattachable
+   */
   public Result resolve(List<SqlDraft> sql, List<Relation> relations) {
     indexBeans();
     indexScans();
@@ -739,7 +757,11 @@ public final class DatasourceResolver {
     return r.withJoinTable(new TableRef(ds.defaultSchema(), jt.name()));
   }
 
-  /** Sources de données détectées, dans l'ordre de détection. */
+  /**
+   * Sources de données détectées, dans l'ordre de détection.
+   *
+   * @return copie sans doublon d'id
+   */
   public List<Datasource> datasources() {
     return List.copyOf(new LinkedHashSet<>(byId.values()));
   }

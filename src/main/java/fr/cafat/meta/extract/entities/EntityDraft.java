@@ -30,6 +30,12 @@ public final class EntityDraft {
   public record Association(CtElement element, String field, CtTypeReference<?> type, String annotation,
       CtAnnotation<?> mapping, String inheritedFrom) {
 
+    /**
+     * Copie marquée comme héritée.
+     *
+     * @param id id de l'entité porteuse de l'attribut (mapped superclass ou parent)
+     * @return nouvelle association, autres champs inchangés
+     */
     public Association inheritedFrom(String id) {
       return new Association(element, field, type, annotation, mapping, id);
     }
@@ -73,7 +79,11 @@ public final class EntityDraft {
     this.source = source;
   }
 
-  /** Applique le schéma par défaut de la source de données aux tables (principale, secondaires) sans schéma. */
+  /**
+   * Applique le schéma par défaut de la source de données aux tables (principale, secondaires) sans schéma.
+   *
+   * @param defaultSchema schéma par défaut ; null : aucun effet
+   */
   public void defaultSchema(String defaultSchema) {
     if (defaultSchema == null) {
       return;
@@ -85,22 +95,49 @@ public final class EntityDraft {
         ? new SecondaryTable(defaultSchema, t.name(), t.joinColumns()) : t);
   }
 
+  /**
+   * Vrai pour une {@code @Entity} (ni embeddable, ni mapped superclass).
+   *
+   * @return true si {@code kind} vaut {@link #ENTITY}
+   */
   public boolean isEntity() {
     return ENTITY.equals(kind);
   }
 
+  /**
+   * Colonnes déclarées par la classe elle-même.
+   *
+   * @return liste interne modifiable (les extracteurs y ajoutent des colonnes)
+   */
   public List<Column> ownColumns() {
     return ownColumns;
   }
 
+  /**
+   * Colonnes effectives.
+   *
+   * @return colonnes héritées comprises après {@link InheritanceResolver#propagate()}, sinon colonnes
+   *     propres ; liste interne
+   */
   public List<Column> columns() {
     return propagated ? columns : ownColumns;
   }
 
+  /**
+   * Associations en attente de {@code RelationExtractor}.
+   *
+   * @return liste interne modifiable, dans l'ordre du source
+   */
   public List<Association> associations() {
     return associations;
   }
 
+  /**
+   * Entité finale, colonnes et tables secondaires triées.
+   *
+   * @return nouvelle entité ; colonnes triées par {@link Column#sortKey()}, tables secondaires par
+   *     schéma puis nom
+   */
   public Entity toEntity() {
     List<Column> cols = new ArrayList<>(columns());
     cols.sort((a, b) -> a.sortKey().compareTo(b.sortKey()));

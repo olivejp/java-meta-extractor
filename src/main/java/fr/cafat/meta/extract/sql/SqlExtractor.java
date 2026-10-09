@@ -129,10 +129,20 @@ public final class SqlExtractor {
   /** Littéraux déjà rattachés à une origine explicite ou à une requête JPQL. */
   private final Set<CtLiteral<?>> consumed = Collections.newSetFromMap(new IdentityHashMap<>());
 
+  /**
+   * Prépare l'extraction des accès SQL.
+   *
+   * @param ctx contexte d'extraction de l'application (modèle, configuration, diagnostics)
+   */
   public SqlExtractor(ExtractionContext ctx) {
     this.ctx = ctx;
   }
 
+  /**
+   * Accès SQL de tous les types et fichiers MyBatis du dépôt, avec leur indice de source de données.
+   *
+   * @return brouillons d'accès SQL, source de données encore null ; liste vide si aucun
+   */
   public List<SqlDraft> extract() {
     for (CtType<?> t : ctx.types().all()) {
       annotations(t);
@@ -156,7 +166,12 @@ public final class SqlExtractor {
     return out;
   }
 
-  /** Accès seuls, sans indice de source de données. */
+  /**
+   * Accès seuls, sans indice de source de données.
+   *
+   * @param drafts brouillons issus de {@link #extract()}
+   * @return accès dans l'ordre des brouillons
+   */
   public static List<SqlAccess> accesses(List<SqlDraft> drafts) {
     return drafts.stream().map(SqlDraft::access).toList();
   }

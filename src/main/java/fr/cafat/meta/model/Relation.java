@@ -3,7 +3,14 @@ package fr.cafat.meta.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
+/** Association JPA entre deux classes persistantes ({@code type} : ONE_TO_ONE, MANY_TO_ONE…). */
 public record Relation(
+  /**
+   * Copie avec une autre table de jointure.
+   *
+   * @param table table de jointure ; null si aucune
+   * @return nouvelle relation, autres champs inchangés
+   */
     @JsonProperty("id") String id,
     @JsonProperty("from_entity") String fromEntity,
     @JsonProperty("to_entity") String toEntity,

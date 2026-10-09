@@ -78,10 +78,20 @@ public final class CallExtractor {
   private final ExtractionContext ctx;
   private final List<Call> out = new ArrayList<>();
 
+  /**
+   * Prépare l'extraction des appels sortants.
+   *
+   * @param ctx contexte d'extraction de l'application (modèle, configuration, diagnostics)
+   */
   public CallExtractor(ExtractionContext ctx) {
     this.ctx = ctx;
   }
 
+  /**
+   * Appels HTTP sortants de tous les types du dépôt.
+   *
+   * @return appels dans l'ordre de parcours des types, ids non suffixés ; liste vide si aucun
+   */
   public List<Call> extract() {
     for (CtType<?> t : ctx.types().all()) {
       CtAnnotation<?> feign = Annotations.find(t, FEIGN_PACKAGES, "FeignClient");

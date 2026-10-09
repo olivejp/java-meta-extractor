@@ -10,6 +10,12 @@ public record Diagnostic(
     @JsonProperty("message") String message,
     @JsonProperty("source") Source source) {
 
+  /**
+   * Copie avec un autre id.
+   *
+   * @param newId id à poser ({@code app:CODE:<sha1 tronqué>}, éventuellement suffixé)
+   * @return nouveau diagnostic, autres champs inchangés
+   */
   public Diagnostic withId(String newId) {
     return new Diagnostic(newId, level, code, message, source);
   }

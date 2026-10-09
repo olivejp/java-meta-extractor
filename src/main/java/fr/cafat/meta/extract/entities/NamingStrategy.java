@@ -15,29 +15,60 @@ import java.util.Locale;
  */
 public final class NamingStrategy {
 
+  /** Stratégie physique : snake_case (Spring Boot), identité (JPA), inconnue (classe personnalisée). */
   public enum Physical { SNAKE_CASE, IDENTITY, UNKNOWN }
 
   private final Physical physical;
   private final boolean springImplicit;
 
+  /**
+   * Stratégie de nommage explicite.
+   *
+   * @param physical stratégie physique appliquée aux noms
+   * @param springImplicit true : noms implicites à la Spring ({@code SpringImplicitNamingStrategy}) ;
+   *     false : noms implicites JPA
+   */
   public NamingStrategy(Physical physical, boolean springImplicit) {
     this.physical = physical;
     this.springImplicit = springImplicit;
   }
 
+  /**
+   * Stratégie par défaut de Spring Boot.
+   *
+   * @return snake_case, noms implicites à la Spring
+   */
   public static NamingStrategy springBoot() {
     return new NamingStrategy(Physical.SNAKE_CASE, true);
   }
 
+  /**
+   * Stratégie par défaut de JPA hors Spring Boot.
+   *
+   * @return identité, noms implicites JPA
+   */
   public static NamingStrategy jpa() {
     return new NamingStrategy(Physical.IDENTITY, false);
   }
 
+  /**
+   * Stratégie physique appliquée.
+   *
+   * @return stratégie physique
+   */
   public Physical physical() {
     return physical;
   }
 
-  /** Stratégie effective d'après la configuration Spring et les unités de persistance. */
+  /**
+   * Stratégie effective d'après la configuration Spring et les unités de persistance.
+   *
+   * @param config configuration effective ({@code spring.jpa.hibernate.naming.*}), prioritaire
+   * @param units unités de persistance ({@code hibernate.physical_naming_strategy}), en repli
+   * @param springBoot true si l'application est Spring Boot : défauts Spring Boot
+   * @param diagnostics collecteur du {@code NAMING_STRATEGY_UNKNOWN}
+   * @return stratégie reconnue ; {@link Physical#UNKNOWN} si la classe déclarée est personnalisée
+   */
   public static NamingStrategy detect(Config config, List<PersistenceUnit> units, boolean springBoot,
       Diagnostics diagnostics) {
     String declared = config.first("spring.jpa.hibernate.naming.physical-strategy",
@@ -74,7 +105,13 @@ public final class NamingStrategy {
     }
   }
 
-  /** Nom physique d'un identifiant explicite (table, colonne, schéma). */
+  /**
+   * Nom physique d'un identifiant explicite (table, colonne, schéma).
+   *
+   * @param name nom écrit dans l'annotation ; null ou vide accepté
+   * @return nom sans guillemets ni accents graves s'il en a, sinon converti par la stratégie
+   *     physique ; null si {@code name} null ou vide
+   */
   public String explicit(String name) {
     if (name == null || name.isBlank()) {
       return null;
@@ -86,7 +123,12 @@ public final class NamingStrategy {
     return physical == Physical.SNAKE_CASE ? snake(n) : n;
   }
 
-  /** Nom physique d'un identifiant implicite (déduit d'un nom Java). */
+  /**
+   * Nom physique d'un identifiant implicite (déduit d'un nom Java).
+   *
+   * @param logical nom logique (nom d'entité, d'attribut…) ; null accepté
+   * @return nom converti ; null si {@code logical} null ou stratégie inconnue
+   */
   public String implicit(String logical) {
     if (logical == null || physical == Physical.UNKNOWN) {
       return null;
@@ -94,12 +136,23 @@ public final class NamingStrategy {
     return physical == Physical.SNAKE_CASE ? snake(logical) : logical;
   }
 
-  /** Table implicite d'une entité : son nom d'entité. */
+  /**
+   * Table implicite d'une entité : son nom d'entité.
+   *
+   * @param entityName nom d'entité JPA
+   * @return nom physique ; null si stratégie inconnue
+   */
   public String table(String entityName) {
     return implicit(entityName);
   }
 
-  /** Colonne de jointure implicite : attribut + "_" + colonne référencée. */
+  /**
+   * Colonne de jointure implicite : attribut + "_" + colonne référencée.
+   *
+   * @param attribute nom de l'attribut d'association
+   * @param referencedColumn colonne référencée de la cible, guillemets retirés ; null accepté
+   * @return nom physique ; null si {@code referencedColumn} null ou stratégie inconnue
+   */
   public String joinColumn(String attribute, String referencedColumn) {
     if (referencedColumn == null) {
       return null;
@@ -110,6 +163,11 @@ public final class NamingStrategy {
   /**
    * Table de jointure implicite. Spring : table propriétaire + "_" + attribut ; JPA : table
    * propriétaire + "_" + table cible.
+   *
+   * @param ownerTable table de l'entité propriétaire ; null accepté
+   * @param attribute nom de l'attribut d'association (règle Spring)
+   * @param targetTable table de l'entité cible (règle JPA) ; null accepté
+   * @return nom physique ; null si une table nécessaire est absente ou stratégie inconnue
    */
   public String joinTable(String ownerTable, String attribute, String targetTable) {
     if (ownerTable == null) {
@@ -121,7 +179,13 @@ public final class NamingStrategy {
     return targetTable == null ? null : implicit(unquote(ownerTable) + "_" + unquote(targetTable));
   }
 
-  /** Table de collection implicite : nom d'entité + "_" + attribut. */
+  /**
+   * Table de collection implicite : nom d'entité + "_" + attribut.
+   *
+   * @param entityName nom d'entité JPA du porteur
+   * @param attribute nom de l'attribut {@code @ElementCollection}
+   * @return nom physique ; null si stratégie inconnue
+   */
   public String collectionTable(String entityName, String attribute) {
     return implicit(entityName + "_" + attribute);
   }

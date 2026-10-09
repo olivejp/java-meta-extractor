@@ -26,6 +26,9 @@ public final class Types {
   /**
    * Rendu d'un type : java.lang.* et types primitifs en nom simple, autres types en nom qualifié,
    * arguments génériques conservés.
+   *
+   * @param ref référence de type ; null accepté
+   * @return rendu ({@code List<String>}, {@code int[]}, {@code ? extends Foo}) ; null si {@code ref} est null
    */
   public static String render(CtTypeReference<?> ref) {
     if (ref == null) {
@@ -46,7 +49,12 @@ public final class Types {
     return name + "<" + args.stream().map(Types::render).collect(Collectors.joining(", ")) + ">";
   }
 
-  /** Nom de base sans génériques (java.lang.* en simple). */
+  /**
+   * Nom de base sans génériques (java.lang.* en simple).
+   *
+   * @param ref référence de type ; obligatoire
+   * @return nom simple pour un primitif ou un type de {@code java.lang}, sinon nom qualifié
+   */
   public static String baseName(CtTypeReference<?> ref) {
     if (ref.isPrimitive()) {
       return ref.getSimpleName();
@@ -58,10 +66,23 @@ public final class Types {
     return qn;
   }
 
+  /**
+   * Nom simple.
+   *
+   * @param ref référence de type ; null accepté
+   * @return nom simple, ou null si {@code ref} est null
+   */
   public static String simpleName(CtTypeReference<?> ref) {
     return ref == null ? null : ref.getSimpleName();
   }
 
+  /**
+   * Vrai si le nom simple est l'un de ceux donnés.
+   *
+   * @param ref référence de type ; null accepté
+   * @param simpleNames noms simples acceptés, sensibles à la casse
+   * @return true si correspondance ; false si {@code ref} est null
+   */
   public static boolean isNamed(CtTypeReference<?> ref, String... simpleNames) {
     if (ref == null) {
       return false;
@@ -75,7 +96,12 @@ public final class Types {
     return false;
   }
 
-  /** Type statique d'une expression, sans exception. */
+  /**
+   * Type statique d'une expression, sans exception.
+   *
+   * @param e expression ; null accepté
+   * @return type calculé par Spoon, ou null si inconnu, en erreur ou {@code e} null
+   */
   public static CtTypeReference<?> typeOf(CtExpression<?> e) {
     try {
       return e == null ? null : e.getType();
@@ -84,12 +110,23 @@ public final class Types {
     }
   }
 
+  /**
+   * Vrai pour un tableau, une collection ou une Map connue.
+   *
+   * @param ref référence de type ; null accepté
+   * @return true pour un tableau ou un nom simple de collection connu (List, Set, Optional, Flux…)
+   */
   public static boolean isCollection(CtTypeReference<?> ref) {
     return ref != null && (ref instanceof CtArrayTypeReference<?>
         || COLLECTIONS.contains(ref.getSimpleName()) || MAPS.contains(ref.getSimpleName()));
   }
 
-  /** Type des éléments d'une collection, d'un tableau ou valeur d'une Map ; sinon le type lui-même. */
+  /**
+   * Type des éléments d'une collection, d'un tableau ou valeur d'une Map ; sinon le type lui-même.
+   *
+   * @param ref référence de type ; null accepté
+   * @return type d'élément ; null si argument générique absent ou {@code ref} null
+   */
   public static CtTypeReference<?> elementType(CtTypeReference<?> ref) {
     if (ref == null) {
       return null;
@@ -107,7 +144,12 @@ public final class Types {
     return ref;
   }
 
-  /** Retire les enveloppes HTTP/asynchrones (ResponseEntity&lt;T&gt;, Mono&lt;T&gt;…). */
+  /**
+   * Retire les enveloppes HTTP/asynchrones (ResponseEntity&lt;T&gt;, Mono&lt;T&gt;…).
+   *
+   * @param ref type de retour ; null accepté
+   * @return type utile ; null si enveloppe sans argument, avec joker, ou {@code ref} null
+   */
   public static CtTypeReference<?> unwrapResponse(CtTypeReference<?> ref) {
     CtTypeReference<?> cur = ref;
     while (cur != null && WRAPPERS.contains(cur.getSimpleName())) {
@@ -120,6 +162,12 @@ public final class Types {
     return cur;
   }
 
+  /**
+   * Vrai pour {@code void}, {@code Void}, {@code Unit} ou une référence null.
+   *
+   * @param ref référence de type ; null accepté
+   * @return true si le type ne porte aucune valeur
+   */
   public static boolean isVoid(CtTypeReference<?> ref) {
     return ref == null || "void".equals(ref.getSimpleName()) || "Void".equals(ref.getSimpleName())
         || "Unit".equals(ref.getSimpleName());

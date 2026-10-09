@@ -18,6 +18,16 @@ public final class PersistenceXmlReader {
   private PersistenceXmlReader() {
   }
 
+  /**
+   * Unités de persistance d'un persistence.xml.
+   *
+   * @param file persistence.xml à lire
+   * @param relative chemin du fichier relatif au dépôt, pour les diagnostics
+   * @param moduleDir répertoire du module porteur, périmètre des entités sans liste de classes
+   * @param diagnostics collecteur des {@code CONFIG_PARSE_ERROR}
+   * @return unités dans l'ordre du fichier ; liste vide si fichier illisible
+   *     ({@code CONFIG_PARSE_ERROR})
+   */
   public static List<PersistenceUnit> read(Path file, String relative, Path moduleDir,
       Diagnostics diagnostics) {
     List<PersistenceUnit> out = new ArrayList<>();

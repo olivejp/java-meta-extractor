@@ -24,25 +24,50 @@ public final class Config {
   /** Résultat d'une résolution : texte (espaces réservés inconnus conservés) et clés manquantes. */
   public record Resolution(String value, Set<String> missing) {
 
+    /**
+     * Vrai si toutes les clés citées sont résolues.
+     *
+     * @return true si {@code missing} est vide
+     */
     public boolean complete() {
       return missing.isEmpty();
     }
   }
 
+  /**
+   * Configuration sans entrée.
+   *
+   * @return nouvelle configuration vide
+   */
   public static Config empty() {
     return new Config();
   }
 
-  /** Ajoute ou surcharge une entrée (la dernière ajoutée gagne). */
+  /**
+   * Ajoute ou surcharge une entrée (la dernière ajoutée gagne).
+   *
+   * @param e entrée à ajouter, obligatoire ; remplace l'entrée de même clé exacte
+   */
   public void put(ConfigEntry e) {
     entries.put(e.key(), e);
     relaxed.put(normalize(e.key()), e.key());
   }
 
+  /**
+   * Vrai si aucune entrée.
+   *
+   * @return true si la configuration est vide
+   */
   public boolean isEmpty() {
     return entries.isEmpty();
   }
 
+  /**
+   * Entrée de la clé : recherche exacte, puis relâchée.
+   *
+   * @param key clé de configuration (ex. {@code spring.datasource.url}), obligatoire
+   * @return entrée trouvée, valeur brute non résolue ; null si absente
+   */
   public ConfigEntry entry(String key) {
     ConfigEntry e = entries.get(key);
     if (e != null) {
@@ -52,13 +77,23 @@ public final class Config {
     return k == null ? null : entries.get(k);
   }
 
-  /** Valeur brute (non résolue). */
+  /**
+   * Valeur brute (non résolue).
+   *
+   * @param key clé de configuration, recherche exacte puis relâchée
+   * @return valeur telle qu'écrite (espaces réservés gardés, secrets non masqués) ; null si clé absente
+   */
   public String raw(String key) {
     ConfigEntry e = entry(key);
     return e == null ? null : e.value();
   }
 
-  /** Valeur résolue, ou null si la clé est absente ou si la résolution est incomplète. */
+  /**
+   * Valeur résolue, ou null si la clé est absente ou si la résolution est incomplète.
+   *
+   * @param key clé de configuration, recherche exacte puis relâchée
+   * @return valeur résolue ; {@code ***} si clé sensible ; null si clé absente ou espace réservé inconnu
+   */
   public String get(String key) {
     ConfigEntry e = entry(key);
     if (e == null) {
@@ -71,7 +106,12 @@ public final class Config {
     return r.complete() ? r.value() : null;
   }
 
-  /** Première valeur résolue parmi des clés alternatives. */
+  /**
+   * Première valeur résolue parmi des clés alternatives.
+   *
+   * @param keys clés alternatives, par ordre de priorité
+   * @return première valeur résolue non vide (voir {@link #get}) ; null si aucune
+   */
   public String first(String... keys) {
     for (String k : keys) {
       String v = get(k);
@@ -82,6 +122,12 @@ public final class Config {
     return null;
   }
 
+  /**
+   * Première entrée présente parmi des clés alternatives.
+   *
+   * @param keys clés alternatives, par ordre de priorité
+   * @return première entrée trouvée, valeur non résolue ; null si aucune
+   */
   public ConfigEntry firstEntry(String... keys) {
     for (String k : keys) {
       ConfigEntry e = entry(k);
@@ -92,11 +138,23 @@ public final class Config {
     return null;
   }
 
-  /** Toutes les entrées, triées par clé. */
+  /**
+   * Toutes les entrées, triées par clé.
+   *
+   * @return copie des entrées, valeurs non résolues
+   */
   public List<ConfigEntry> entries() {
     return new ArrayList<>(entries.values());
   }
 
+  /**
+   * Résout les espaces réservés {@code ${cle:defaut}} du texte ; les expressions {@code #{…}} restent
+   * inconnues.
+   *
+   * @param text texte à résoudre ; null accepté
+   * @return texte résolu (null si {@code text} null), espaces réservés inconnus gardés tels quels, clés
+   *     sensibles en {@code ***} ; clés manquantes et expressions {@code #{…}} dans {@code missing}
+   */
   public Resolution resolve(String text) {
     Set<String> missing = new LinkedHashSet<>();
     String v = resolve(text, missing, 0);
@@ -186,7 +244,12 @@ public final class Config {
     return -1;
   }
 
-  /** Forme canonique relâchée : minuscules, sans tirets ni soulignés. */
+  /**
+   * Forme canonique relâchée : minuscules, sans tirets ni soulignés.
+   *
+   * @param key clé de configuration, obligatoire
+   * @return clé normalisée (ex. {@code base-url} → {@code baseurl})
+   */
   public static String normalize(String key) {
     return key.toLowerCase(Locale.ROOT).replace("-", "").replace("_", "");
   }

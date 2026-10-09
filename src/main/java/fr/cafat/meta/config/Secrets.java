@@ -23,7 +23,13 @@ public final class Secrets {
   private Secrets() {
   }
 
-  /** Vrai si le dernier segment de la clé désigne un secret ou un identifiant. */
+  /**
+   * Vrai si le dernier segment de la clé désigne un secret ou un identifiant.
+   *
+   * @param key clé de configuration ou nom de propriété ; null accepté
+   * @return true si le dernier segment (insensible à la casse, tirets et soulignés ignorés) vaut
+   *     {@code user}, {@code login}… ou contient {@code password}, {@code token}… ; false si null
+   */
   public static boolean isSensitiveKey(String key) {
     if (key == null) {
       return false;
@@ -48,6 +54,9 @@ public final class Secrets {
   /**
    * Retire l'userinfo ({@code //u:p@h} → {@code //h}) et masque les paramètres sensibles
    * ({@code password=x} → {@code password=***}).
+   *
+   * @param url URL JDBC ou HTTP ; null accepté
+   * @return URL nettoyée ; null si {@code url} null
    */
   public static String sanitizeUrl(String url) {
     if (url == null) {

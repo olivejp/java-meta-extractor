@@ -27,13 +27,27 @@ public final class Annotations {
   private Annotations() {
   }
 
-  /** Première annotation de nom simple {@code simpleName} acceptable pour les paquets donnés. */
+  /**
+   * Première annotation de nom simple {@code simpleName} acceptable pour les paquets donnés.
+   *
+   * @param element élément annoté ; null accepté
+   * @param packages paquets attendus ({@code javax.persistence}…) ; vide : tout paquet accepté
+   * @param simpleName nom simple de l'annotation, sans {@code @}
+   * @return première annotation de {@link #findAll}, ou null si aucune
+   */
   public static CtAnnotation<?> find(CtElement element, Set<String> packages, String simpleName) {
     List<CtAnnotation<?>> all = findAll(element, packages, simpleName);
     return all.isEmpty() ? null : all.get(0);
   }
 
-  /** Comme {@link #find} pour plusieurs noms : première trouvée dans l'ordre des noms. */
+  /**
+   * Comme {@link #find} pour plusieurs noms : première trouvée dans l'ordre des noms.
+   *
+   * @param element élément annoté ; null accepté
+   * @param packages paquets attendus ; vide : tout paquet accepté
+   * @param simpleNames noms simples essayés dans l'ordre
+   * @return première annotation trouvée, ou null si aucune
+   */
   public static CtAnnotation<?> findAny(CtElement element, Set<String> packages,
       String... simpleNames) {
     for (String n : simpleNames) {
@@ -45,6 +59,14 @@ public final class Annotations {
     return null;
   }
 
+  /**
+   * Vrai si {@link #find} trouve l'annotation.
+   *
+   * @param element élément annoté ; null accepté
+   * @param packages paquets attendus ; vide : tout paquet accepté
+   * @param simpleName nom simple de l'annotation
+   * @return true si l'annotation est portée directement par l'élément
+   */
   public static boolean has(CtElement element, Set<String> packages, String simpleName) {
     return find(element, packages, simpleName) != null;
   }
@@ -53,6 +75,11 @@ public final class Annotations {
    * Annotations correspondantes, celles d'un paquet attendu en premier, puis dans l'ordre du
    * source. Les annotations répétées dans un conteneur (ex. {@code @JoinColumns}) ne sont pas
    * dépliées ici : voir {@link #nested}.
+   *
+   * @param element élément annoté ; null accepté
+   * @param packages paquets attendus ; vide : tout paquet accepté
+   * @param simpleName nom simple de l'annotation
+   * @return annotations trouvées ; liste vide si aucune ou si {@code element} est null
    */
   public static List<CtAnnotation<?>> findAll(CtElement element, Set<String> packages,
       String simpleName) {
@@ -102,7 +129,13 @@ public final class Annotations {
     return i < 0 ? "" : qn.substring(0, i);
   }
 
-  /** Expression déclarée pour un attribut (sans valeur par défaut), ou null. */
+  /**
+   * Expression déclarée pour un attribut (sans valeur par défaut), ou null.
+   *
+   * @param a annotation ; null accepté
+   * @param key nom de l'attribut ({@code value}, {@code name}…)
+   * @return expression écrite dans le source, ou null si attribut absent ou annotation null
+   */
   public static CtExpression<?> value(CtAnnotation<?> a, String key) {
     if (a == null) {
       return null;
@@ -111,7 +144,13 @@ public final class Annotations {
     return e;
   }
 
-  /** Première expression déclarée parmi plusieurs alias d'attribut ({@code value}, {@code path}…). */
+  /**
+   * Première expression déclarée parmi plusieurs alias d'attribut ({@code value}, {@code path}…).
+   *
+   * @param a annotation ; null accepté
+   * @param keys noms d'attributs essayés dans l'ordre
+   * @return première expression présente et non tableau vide, ou null si aucune
+   */
   public static CtExpression<?> firstValue(CtAnnotation<?> a, String... keys) {
     for (String k : keys) {
       CtExpression<?> e = value(a, k);
@@ -122,11 +161,23 @@ public final class Annotations {
     return null;
   }
 
-  /** Éléments d'un attribut (tableau déplié ; valeur unique en liste d'un élément). */
+  /**
+   * Éléments d'un attribut (tableau déplié ; valeur unique en liste d'un élément).
+   *
+   * @param a annotation ; null accepté
+   * @param key nom de l'attribut
+   * @return éléments de l'attribut ; liste vide si attribut absent
+   */
   public static List<CtExpression<?>> values(CtAnnotation<?> a, String key) {
     return flatten(value(a, key));
   }
 
+  /**
+   * Déplie une expression de tableau, récursivement.
+   *
+   * @param e expression ; null accepté
+   * @return éléments du tableau, ou l'expression seule ; liste vide si {@code e} est null
+   */
   public static List<CtExpression<?>> flatten(CtExpression<?> e) {
     List<CtExpression<?>> out = new ArrayList<>();
     if (e == null) {
@@ -146,7 +197,13 @@ public final class Annotations {
     return e instanceof CtNewArray<?> arr && arr.getElements().isEmpty();
   }
 
-  /** Annotations imbriquées d'un attribut ({@code @JoinTable(joinColumns = {@JoinColumn…})}). */
+  /**
+   * Annotations imbriquées d'un attribut ({@code @JoinTable(joinColumns = {@JoinColumn…})}).
+   *
+   * @param a annotation conteneur ; null accepté
+   * @param key nom de l'attribut
+   * @return annotations de l'attribut, autres expressions ignorées ; liste vide si aucune
+   */
   public static List<CtAnnotation<?>> nested(CtAnnotation<?> a, String key) {
     List<CtAnnotation<?>> out = new ArrayList<>();
     for (CtExpression<?> e : values(a, key)) {
@@ -157,7 +214,12 @@ public final class Annotations {
     return out;
   }
 
-  /** Nom de la constante d'énumération ({@code InheritanceType.JOINED} → {@code JOINED}). */
+  /**
+   * Nom de la constante d'énumération ({@code InheritanceType.JOINED} → {@code JOINED}).
+   *
+   * @param e expression ; null accepté
+   * @return nom simple de la constante, ou null si {@code e} n'est pas une lecture de constante
+   */
   public static String enumConstant(CtExpression<?> e) {
     if (e instanceof CtFieldRead<?> fr && fr.getVariable() != null) {
       String name = fr.getVariable().getSimpleName();
@@ -166,7 +228,12 @@ public final class Annotations {
     return null;
   }
 
-  /** Type d'un littéral de classe ({@code Foo.class}, {@code Foo::class}), sinon null. */
+  /**
+   * Type d'un littéral de classe ({@code Foo.class}, {@code Foo::class}), sinon null.
+   *
+   * @param e expression ; null accepté
+   * @return type référencé, ou null si {@code e} n'est pas un littéral de classe
+   */
   public static CtTypeReference<?> classLiteral(CtExpression<?> e) {
     if (e instanceof CtFieldRead<?> fr && fr.getVariable() != null
         && "class".equals(fr.getVariable().getSimpleName())) {
@@ -178,7 +245,13 @@ public final class Annotations {
     return null;
   }
 
-  /** Booléen littéral, ou null si absent ou non littéral. */
+  /**
+   * Booléen littéral, ou null si absent ou non littéral.
+   *
+   * @param a annotation ; null accepté
+   * @param key nom de l'attribut
+   * @return valeur écrite, ou null si absente ou non littérale (constante, expression)
+   */
   public static Boolean bool(CtAnnotation<?> a, String key) {
     CtExpression<?> e = value(a, key);
     if (e instanceof spoon.reflect.code.CtLiteral<?> lit && lit.getValue() instanceof Boolean b) {
@@ -187,7 +260,13 @@ public final class Annotations {
     return null;
   }
 
-  /** Entier littéral, ou null si absent ou non littéral. */
+  /**
+   * Entier littéral, ou null si absent ou non littéral.
+   *
+   * @param a annotation ; null accepté
+   * @param key nom de l'attribut
+   * @return valeur écrite tronquée en int, ou null si absente ou non littérale
+   */
   public static Integer integer(CtAnnotation<?> a, String key) {
     CtExpression<?> e = value(a, key);
     if (e instanceof spoon.reflect.code.CtLiteral<?> lit && lit.getValue() instanceof Number n) {
@@ -199,6 +278,12 @@ public final class Annotations {
   /**
    * Annotation présente directement ou via une méta-annotation déclarée dans le dépôt (ex.
    * annotation maison portant {@code @RestController}).
+   *
+   * @param element élément annoté ; obligatoire
+   * @param index types du dépôt ; si null, recherche directe seulement
+   * @param packages paquets attendus ; vide : tout paquet accepté
+   * @param simpleName nom simple de l'annotation cherchée
+   * @return true si trouvée directement ou à 5 niveaux de méta-annotation max
    */
   public static boolean hasMeta(CtElement element, TypeIndex index, Set<String> packages,
       String simpleName) {
