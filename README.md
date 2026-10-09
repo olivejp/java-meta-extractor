@@ -80,32 +80,19 @@ Codes de sortie (le plus élevé l'emporte) :
 | 2 | Sortie non conforme au schéma. Le fichier est alors écrit sous `<application>.json.invalid` et les erreurs sur stderr. |
 | 3 | Erreur d'usage (options), dépôt introuvable ou exception interne qui empêche toute sortie. |
 
-## Récupérer les dépôts
+## Dépôts en entrée
 
-`scripts/fetch_repos.py` (Python 3, sans dépendance) clone ou met à jour les dépôts Java d'un projet Bitbucket sur une branche, en clones superficiels. Le répertoire produit se passe tel quel à `--repos-dir`.
+L'extracteur ne récupère aucun dépôt : il lit des copies locales déjà extraites. Le clonage, la mise à jour, le choix de la branche et la sélection des dépôts relèvent d'un outil placé en amont, hors de ce projet. Ce qu'il doit fournir :
+
+- **Un sous-répertoire par dépôt** dans le répertoire passé à `--repos-dir`. Ne sont retenus que ceux qui contiennent à la racine un `pom.xml`, un build Gradle ou un `.git` ; fichiers et autres répertoires sont ignorés.
+- **Le code au commit à analyser**, sans modification locale : l'extracteur lit les fichiers tels qu'ils sont sur disque.
+- **Le `.git` du clone** (un clone superficiel suffit) : l'URL du remote `origin` et le commit de HEAD y sont lus sans commande git. Sans `.git`, `repository` et `commit` valent `null` dans la sortie, et la consolidation ne peut plus déduire le projet Bitbucket. Avec `--repo`, `--commit` remplace le commit lu.
+- **Uniquement des dépôts Java ou Kotlin** : un sous-répertoire avec un `.git` mais sans `pom.xml` ni build Gradle est analysé en entier comme une seule application (avertissement `NO_DEPLOYABLE_MODULE`).
+- **Le dépôt Spring Cloud Config** éventuel, extrait sur le label servi, à passer par `--config-repo` (voir « Spring Cloud Config »).
 
 ```bash
-export BITBUCKET_URL=https://<serveur-bitbucket> BITBUCKET_TOKEN=<jeton d'accès personnel, lecture>
-scripts/fetch_repos.py ~/carto/depots --project gen --branch master
 java -jar target/java-meta-extractor.jar --repos-dir ~/carto/depots --out out/
 ```
-
-Sans jeton d'API, `--repos-file liste.txt` lit les noms de dépôts dans un fichier. Les clones passent alors par `--ssh-base`, par défaut `ssh://git@merlin-ref4.intra.cafat.nc:7999`. Avec l'API, `--protocol ssh` (défaut) ou `http` choisit le lien de clonage. Git ne pose jamais de question : la clé SSH doit être dans l'agent, et un certificat interne se déclare par `SSL_CERT_FILE`.
-
-Le répertoire cible appartient au script : il refuse un répertoire non vide qu'il n'a pas créé, et à chaque passage il efface les modifications locales et supprime les dépôts sortis du périmètre. Seuls les dépôts avec un `pom.xml` ou un build Gradle à la racine y restent.
-
-`manifest.tsv`, trié par dépôt et sans date, donne pour chacun le statut, l'action, le commit et une note :
-
-| Statut | Sens |
-|---|---|
-| `java` | Cloné ou à jour, analysé par `--repos-dir`. |
-| `non_java` | Pas de build à la racine ; la note signale un build plus bas dans l'arborescence. Le clone est supprimé et n'est refait qu'au commit suivant. |
-| `no_branch` | Branche demandée absente. |
-| `archived` | Dépôt archivé dans Bitbucket. |
-| `removed` | Dépôt disparu du projet ; clone supprimé. |
-| `error` | Accès ou commande git en échec. Un clone précédent reste en place, à son ancien commit. |
-
-Codes de sortie : 0 succès, 1 au moins un dépôt en `error`, 3 erreur d'usage ou API inaccessible.
 
 ## Lire les erreurs
 
