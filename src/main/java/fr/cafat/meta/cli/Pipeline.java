@@ -1,5 +1,6 @@
 package fr.cafat.meta.cli;
 
+import fr.cafat.meta.config.CloudConfigRepo;
 import fr.cafat.meta.config.Config;
 import fr.cafat.meta.config.ConfigLoader;
 import fr.cafat.meta.config.DatasourceDetector;
@@ -38,6 +39,9 @@ import fr.cafat.meta.spoon.Annotations;
 import fr.cafat.meta.spoon.Provenance;
 import fr.cafat.meta.spoon.TypeIndex;
 import fr.cafat.meta.spoon.ValueEval;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,9 +79,17 @@ public final class Pipeline {
    * @param appName nom imposé (dépôt à une seule unité déployable), sinon null
    * @param profiles profils Spring actifs, dans l'ordre
    * @param viewSchemas schémas dont toutes les tables sont des vues
+   * @param kotlin traduction Kotlin ; null : fichiers .kt ignorés ({@code KOTLIN_SKIPPED})
+   * @param cloudConfig dépôt Spring Cloud Config appliqué aux applications clientes ; null : aucun
    */
   public record Options(String commit, String appName, List<String> profiles, Set<String> viewSchemas,
-      KotlinFactory kotlin) {
+      KotlinFactory kotlin, CloudConfigRepo cloudConfig) {
+
+    /** Options sans dépôt Spring Cloud Config. */
+    public Options(String commit, String appName, List<String> profiles, Set<String> viewSchemas,
+        KotlinFactory kotlin) {
+      this(commit, appName, profiles, viewSchemas, kotlin, null);
+    }
   }
 
   /**
@@ -174,6 +186,7 @@ public final class Pipeline {
     }
     Config config = new ConfigLoader(diags, scanner::relative,
         (f, text) -> scanner.moduleOf(f).filtering().apply(f, text)).load(configFiles, options.profiles());
+    cloudConfig(scanner, unit, config, options, diags);
     List<Path> resources = scanner.files(unit.modules(), ".xml");
     List<PersistenceUnit> pus = new ArrayList<>();
     for (Path f : resources) {
@@ -183,6 +196,35 @@ public final class Pipeline {
     }
     return new Prepared(unit, config, pus, scanner.files(unit.modules(), ".java"),
         scanner.files(unit.modules(), ".kt"), resources, diags);
+  }
+
+  /**
+   * Configuration distante d'une application cliente de Spring Cloud Config, par-dessus sa
+   * configuration locale. Sans {@code --config-repo} : diagnostic {@code CLOUD_CONFIG_NOT_PROVIDED}.
+   */
+  private static void cloudConfig(RepoScanner scanner, DeployableUnit unit, Config config, Options options,
+      Diagnostics diags) {
+    List<String> builds = new ArrayList<>();
+    for (Module m : scanner.modules()) {
+      boolean inUnit = unit.modules().contains(m) || unit.main().dir().normalize().startsWith(m.dir().normalize());
+      if (inUnit && m.buildFile() != null) {
+        try {
+          builds.add(Files.readString(scanner.root().resolve(m.buildFile()), StandardCharsets.ISO_8859_1));
+        } catch (IOException e) {
+          // Build illisible : déjà signalé par la lecture des modules.
+        }
+      }
+    }
+    if (!CloudConfigRepo.isClient(config, builds)) {
+      return;
+    }
+    List<String> names = CloudConfigRepo.names(config, unit.main().artifactId());
+    if (options.cloudConfig() == null) {
+      diags.info("CLOUD_CONFIG_NOT_PROVIDED", "client Spring Cloud Config (" + String.join(", ", names)
+          + ") : configuration distante non lue, sans --config-repo", null);
+      return;
+    }
+    options.cloudConfig().apply(config, names, options.profiles(), diags);
   }
 
   /**

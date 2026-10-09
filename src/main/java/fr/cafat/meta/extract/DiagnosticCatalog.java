@@ -65,6 +65,15 @@ public final class DiagnosticCatalog {
     add("NO_DEPLOYABLE_MODULE", "aucun module déployable détecté", Origin.CONFIGURATION,
         "le dépôt entier est analysé comme une seule application, nommée d'après le module racine",
         "vérifier le packaging des modules (ear, war, ejb, plugin Spring Boot) ; rien à faire pour une bibliothèque");
+    add("CLOUD_CONFIG_NOT_PROVIDED", "client Spring Cloud Config sans dépôt de configuration", Origin.LAUNCH,
+        "seule la configuration locale est lue : URL, datasources ou files définies dans Spring Cloud Config "
+            + "restent non résolues",
+        "relancer avec --config-repo <clone du dépôt de configuration> (et --config-search-paths si le "
+            + "serveur en déclare)");
+    add("CLOUD_CONFIG_NOT_FOUND", "aucun fichier propre à l'application dans le dépôt Spring Cloud Config",
+        Origin.LAUNCH, "seuls les fichiers communs (application*.yml) du dépôt de configuration sont appliqués",
+        "vérifier spring.application.name (ou spring.cloud.config.name), la branche extraite du dépôt de "
+            + "configuration et --config-search-paths (search-paths du serveur)");
     add("PROFILE_NOT_APPLIED", "aucun profil Spring demandé", Origin.LAUNCH,
         "seule la configuration de base est lue : les valeurs propres aux profils sont ignorées",
         "relancer avec --profile <profil> si les URL, datasources ou files de l'environnement visé "

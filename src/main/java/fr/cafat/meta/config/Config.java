@@ -46,11 +46,16 @@ public final class Config {
   /**
    * Ajoute ou surcharge une entrée (la dernière ajoutée gagne).
    *
-   * @param e entrée à ajouter, obligatoire ; remplace l'entrée de même clé exacte
+   * @param e entrée à ajouter, obligatoire ; remplace l'entrée de même clé, exacte ou relâchée
    */
   public void put(ConfigEntry e) {
+    // Même clé sous une autre forme (baseUrl / base-url) : l'ancienne est retirée pour que la
+    // recherche exacte ne la retrouve pas à la place de la nouvelle.
+    String previous = relaxed.put(normalize(e.key()), e.key());
+    if (previous != null && !previous.equals(e.key())) {
+      entries.remove(previous);
+    }
     entries.put(e.key(), e);
-    relaxed.put(normalize(e.key()), e.key());
   }
 
   /**

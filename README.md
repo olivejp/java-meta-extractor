@@ -15,7 +15,7 @@ dépôt ─► 1 inventaire ─► 2 configuration ─► 3 lecture du code ─�
 | # | Étape | Classes | Résultat |
 |---|---|---|---|
 | 1 | Inventaire (`scan/`) | `RepoScanner`, `MavenReader`, `GradleReader`, `GitInfo` | Modules, fichiers par module (tests et répertoires de build exclus), unités déployables, origine et commit git. |
-| 2 | Configuration (`config/`) | `ConfigLoader`, `PersistenceXmlReader`, `Secrets` | Par unité : `bootstrap*` et `application*` fusionnés avec les profils demandés, filtrage Maven appliqué, secrets masqués ; unités de persistance. |
+| 2 | Configuration (`config/`) | `ConfigLoader`, `CloudConfigRepo`, `PersistenceXmlReader`, `Secrets` | Par unité : `bootstrap*` et `application*` fusionnés avec les profils demandés, filtrage Maven appliqué, puis configuration Spring Cloud Config par-dessus ; secrets masqués ; unités de persistance. |
 | 3 | Lecture du code (`parse/`, `spoon/`) | `SpoonLoader`, `KotlinToSpoon`, `TypeIndex`, `ValueEval` | Modèle Spoon (`noClasspath`) du Java et du Kotlin traduit ; index des types ; évaluation statique des chaînes (constantes, concaténations, `${…}`). |
 | 4 | Extraction (`extract/`) | `PersistenceExtractor` (`EntityExtractor`, `InheritanceResolver`, `RelationExtractor`), `SqlExtractor` + `SqlAnalyzer`, `EndpointExtractor`, `CallExtractor`, `JmsExtractor` | Entités et colonnes, héritage, relations, accès SQL et tables, endpoints, appels HTTP sortants, échanges JMS. |
 | 5 | Sources de données (`config/`, `resolve/`) | `DatasourceDetector`, `DatasourceResolver` | Sources lues dans la configuration ; entités, SQL et tables de jointure rattachés à leur source ; schéma par défaut ; `is_view`. |
@@ -63,6 +63,8 @@ docker run --rm --network none -v /chemin/vers/s-gen-gpp:/repo:ro -v "$PWD/out:/
 | `--out DIR` | Répertoire de sortie, créé au besoin. |
 | `--app-name NOM` | Nom imposé, si le dépôt n'a qu'une seule unité déployable. Uniquement avec `--repo`. |
 | `--profile P[,P…]` | Profils Spring actifs, dans l'ordre. |
+| `--config-repo DIR` | Clone local du dépôt Spring Cloud Config, appliqué aux applications clientes (voir « Spring Cloud Config »). |
+| `--config-search-paths C[,C…]` | Répertoires de recherche de ce dépôt, comme `search-paths` du serveur : `{application}`, `{profile}` et `*` acceptés. Défaut : racine seule. |
 | `--fail-on-warning` | Un diagnostic `warning` donne aussi le code 1. |
 | `--view-schemas S[,S…]` | Schémas dont toutes les tables sont des vues. Défaut : `MGENGPP`. |
 | `--max-warnings N` | Occurrences affichées par code d'avertissement dans le rapport. Défaut : 5. |
@@ -125,6 +127,24 @@ Tout s'écrit sur stderr, jamais dans le JSON. Pour chaque application, une lign
 Toutes les erreurs sont listées, 5 occurrences par code d'avertissement (`--max-warnings`) et une par code d'info ; le JSON garde la liste complète. `--list-diagnostics` affiche le catalogue complet (`extract/DiagnosticCatalog`).
 
 **Erreurs internes.** Chaque étape de l'extraction (entités JPA, SQL, sources de données, endpoints, appels, JMS) est isolée : si elle lève une exception, elle devient un diagnostic `error` `EXTRACTION_STEP_FAILED` qui nomme l'étape, l'exception et la ligne de l'extracteur en cause (`à CallExtractor.java:86, CallExtractor.extract`), et les autres étapes produisent leur résultat. Une exception dans une étape sans laquelle rien ne peut suivre (structure du dépôt, configuration, lecture du code) arrête le dépôt avec le code 3 et un bloc `ÉCHEC DE L'EXTRACTION` (étape, erreur, à faire). `--stacktrace` ajoute la pile complète.
+
+## Spring Cloud Config
+
+Les URL, sources de données et files définies dans un serveur Spring Cloud Config sont lues dans un clone local de son dépôt git, extrait sur la branche (label) servie :
+
+```bash
+git clone -b master ssh://…/config-repo ~/carto/config-repo
+java -jar target/java-meta-extractor.jar --repos-dir ~/carto/depots --out out/ --profile prod \
+  --config-repo ~/carto/config-repo --config-search-paths '{application}'
+```
+
+- **Applications concernées** : celles dont un build déclare `spring-cloud-starter-config` ou `spring-cloud-config-client`, ou dont la configuration déclare `spring.cloud.config.uri` ou `spring.config.import=configserver:…`. `spring.cloud.config.enabled=false` les exclut.
+- **Nom demandé au serveur** : `spring.cloud.config.name` (liste possible), sinon `spring.application.name`, sinon l'`artifactId`.
+- **Fichiers lus**, du moins au plus prioritaire : `application.*`, `{nom}.*`, puis pour chaque profil `application-{profil}.*`, `{nom}-{profil}.*`. Sans `--profile` : profil `default`. Dans chaque niveau : racine, puis `--config-search-paths` dans l'ordre ; `.properties` l'emporte sur `.yml`. Les documents YAML conditionnés par profil sont pris en compte.
+- **Priorité** : la configuration distante remplace la configuration locale, clé par clé, comme le client Spring.
+- **Valeurs `{cipher}…`** : déchiffrées par le serveur seulement, donc masquées (`***`).
+- **Provenance** : `cloud-config:<chemin dans le dépôt de configuration>`.
+- Les `search-paths` se lisent dans la configuration du serveur Config (`spring.cloud.config.server.git.search-paths`).
 
 ## Unités déployables
 
@@ -193,6 +213,8 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
 | `ENTITY_UNREFERENCED` | info | Entité jamais nommée ailleurs dans le code (classe gardée dans la sortie). |
 | `TARGET_APP_UNKNOWN` | info | Application cible d'un appel non déduite de l'hôte. |
 | `PROFILE_NOT_APPLIED` | info | Profils disponibles mais aucun demandé. |
+| `CLOUD_CONFIG_NOT_PROVIDED` | info | Application cliente de Spring Cloud Config, lancée sans `--config-repo`. |
+| `CLOUD_CONFIG_NOT_FOUND` | info | Aucun fichier `{nom}*` dans le dépôt de configuration : seuls les fichiers communs sont appliqués. |
 | `SUBRESOURCE_LOCATOR_IGNORED` | info | Localisateur de sous-ressource JAX-RS non suivi. |
 | `KOTLIN_SKIPPED` | warning | Fichiers Kotlin présents mais traduction désactivée. |
 | `EXTRACTION_STEP_FAILED` | error | Exception interne dans une étape de l'extraction, isolée (voir « Lire les erreurs »). |
@@ -289,6 +311,7 @@ La suite comprend :
   - l'application cible n'est déduite que de l'hôte : un appel via une passerelle d'API garde `?` ;
   - une valeur sensible par son nom de clé reste masquée même dans une URL (`path.check-password` → `***`).
 - **JMS** : les destinations déclarées dans un XML Spring et les annotations JMS au niveau de la classe ne sont pas lues.
+- **Spring Cloud Config** : seul le backend git est lu, depuis un clone local ; pas de backend Vault, JDBC ou natif, ni d'appel au serveur. Un `{label}` dans les `search-paths` n'est pas remplacé.
 - **Kotlin** : les sources sont traduites dans le modèle Spoon sans résolution sémantique.
   - Un membre hérité d'un type absent du dépôt reste de type `Object`.
   - Les surcharges sont choisies selon le nombre d'arguments seulement.

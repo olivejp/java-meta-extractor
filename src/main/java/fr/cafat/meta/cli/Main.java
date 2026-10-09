@@ -1,6 +1,7 @@
 package fr.cafat.meta.cli;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import fr.cafat.meta.config.CloudConfigRepo;
 import fr.cafat.meta.extract.Diagnostics;
 import fr.cafat.meta.extract.Failures;
 import fr.cafat.meta.extract.Failures.StepFailure;
@@ -70,6 +71,15 @@ public final class Main implements Callable<Integer> {
   @Option(names = "--profile", split = ",", paramLabel = "PROFIL", description = "Profil(s) Spring actif(s).")
   List<String> profiles = new ArrayList<>();
 
+  @Option(names = "--config-repo", paramLabel = "DIR",
+      description = "Clone local du dépôt Spring Cloud Config, appliqué aux applications clientes.")
+  Path configRepo;
+
+  @Option(names = "--config-search-paths", split = ",", paramLabel = "CHEMIN",
+      description = "Répertoires de recherche du dépôt de configuration (search-paths du serveur ; "
+          + "{application}, {profile} et * acceptés). Défaut : racine seule.")
+  List<String> configSearchPaths = new ArrayList<>();
+
   @Option(names = "--fail-on-warning", description = "Code 1 aussi en présence d'un diagnostic warning.")
   boolean failOnWarning;
 
@@ -135,8 +145,12 @@ public final class Main implements Callable<Integer> {
     }
     List<Path> repos = repos();
     Files.createDirectories(out);
+    if (configRepo != null && !Files.isDirectory(configRepo)) {
+      throw new ParameterException(spec.commandLine(), "--config-repo : répertoire introuvable : " + configRepo);
+    }
+    CloudConfigRepo cloudConfig = configRepo == null ? null : new CloudConfigRepo(configRepo, configSearchPaths);
     Pipeline.Options options = new Pipeline.Options(commit, appName, List.copyOf(profiles),
-        Set.copyOf(viewSchemas), KOTLIN);
+        Set.copyOf(viewSchemas), KOTLIN, cloudConfig);
     int exit = EXIT_OK;
     Set<String> written = new HashSet<>();
     for (Path repo : repos) {

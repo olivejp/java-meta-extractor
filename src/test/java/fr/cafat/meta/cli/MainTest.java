@@ -166,6 +166,8 @@ class MainTest {
         .isEqualTo(Main.EXIT_USAGE);
     assertThat(run("--repos-dir", TestContexts.FIXTURES.toString(), "--commit", "x", "--out", out.toString())
         .exit()).isEqualTo(Main.EXIT_USAGE);
+    assertThat(run("--repo", SPRING, "--config-repo", out.resolve("absent").toString(), "--out", out.toString())
+        .exit()).isEqualTo(Main.EXIT_USAGE);
 
     Run warnings = run("--repo", JBOSS, "--out", out.toString(), "--fail-on-warning");
     assertThat(warnings.exit()).isEqualTo(Main.EXIT_DIAGNOSTIC);

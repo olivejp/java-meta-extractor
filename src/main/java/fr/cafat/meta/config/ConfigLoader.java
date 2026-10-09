@@ -146,7 +146,8 @@ public final class ConfigLoader {
     return null;
   }
 
-  private List<List<ConfigEntry>> read(Path f) {
+  /** Documents du fichier (un par document YAML) ; liste vide si illisible ({@code CONFIG_PARSE_ERROR}). */
+  List<List<ConfigEntry>> read(Path f) {
     String rel = relative.apply(f);
     try {
       String text = buildFilter.apply(f, decode(Files.readAllBytes(f)));
@@ -183,7 +184,7 @@ public final class ConfigLoader {
   }
 
   /** Condition de profil d'un document (Boot 2.4+ ou forme historique), ou null. */
-  private static String activation(List<ConfigEntry> doc) {
+  static String activation(List<ConfigEntry> doc) {
     for (ConfigEntry e : doc) {
       if (e.key().equals("spring.config.activate.on-profile") || e.key().equals("spring.profiles")) {
         return e.value();
