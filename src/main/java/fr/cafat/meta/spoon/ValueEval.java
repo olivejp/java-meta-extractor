@@ -486,7 +486,10 @@ public final class ValueEval {
         appends.add(inv);
       }
     }
-    appends.sort(Comparator.comparingInt(Provenance::offset));
+    // Appels chaînés (sb.append(a).append(b)) : même offset de départ, celui de sb ; l'appel le plus
+    // interne s'exécute d'abord.
+    appends.sort(Comparator.comparingInt((CtInvocation<?> i) -> Provenance.offset(i))
+        .thenComparingInt(ValueEval::chainDepth));
     boolean first = value.isEmpty();
     for (CtInvocation<?> inv : appends) {
       String n = inv.getExecutable().getSimpleName();
@@ -533,6 +536,15 @@ public final class ValueEval {
   private static boolean isNumeric(CtExpression<?> e) {
     CtTypeReference<?> t = Types.typeOf(e);
     return t != null && (t.getSimpleName().equals("int") || t.getSimpleName().equals("Integer"));
+  }
+
+  /** Nombre d'appels sous celui-ci dans sa chaîne ({@code sb.append(a).append(b)} → 1). */
+  private static int chainDepth(CtInvocation<?> inv) {
+    int depth = 0;
+    for (CtExpression<?> t = inv.getTarget(); t instanceof CtInvocation<?> i; t = i.getTarget()) {
+      depth++;
+    }
+    return depth;
   }
 
   /** Variable locale au bout d'une chaîne d'appels ({@code sb.append(a).append(b)} → sb). */

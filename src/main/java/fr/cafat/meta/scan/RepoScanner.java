@@ -247,7 +247,7 @@ public final class RepoScanner {
         case "war" -> kind = inEar.contains(m) ? null : "war";
         case "ejb" -> kind = inEar.contains(m) ? null : "ejb";
         case "pom" -> kind = null;
-        default -> kind = !inEar.contains(m) && isSpringBootApp(m) ? "boot" : null;
+        default -> kind = !inEar.contains(m) && (hasMavenBootPlugin(m) || isSpringBootApp(m)) ? "boot" : null;
       }
       if (kind != null) {
         units.add(new DeployableUnit(m, List.copyOf(closure(m, byKey)), kind));
@@ -289,6 +289,15 @@ public final class RepoScanner {
       }
     }
     return new ArrayList<>(seen);
+  }
+
+  /**
+   * Plugin {@code spring-boot-maven-plugin} déclaré dans le pom du module. Côté Gradle,
+   * {@code springBootPlugin} est vrai dès que le build cite {@code org.springframework.boot} (simple
+   * dépendance comprise) : trop large pour désigner un livrable, d'où la restriction à Maven.
+   */
+  private static boolean hasMavenBootPlugin(Module m) {
+    return m.springBootPlugin() && m.buildFile() != null && m.buildFile().endsWith("pom.xml");
   }
 
   private boolean isSpringBootApp(Module m) {
