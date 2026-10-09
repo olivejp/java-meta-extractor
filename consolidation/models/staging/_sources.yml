@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: landing
+    schema: landing
+    description: Fichiers chargés tels quels par scripts/load_*.sh.
+    tables:
+      - name: extraction
+        description: Un JSON de java-meta-extractor (contrat 1.0) par ligne.
+      - name: catalog_column
+        description: Colonnes du catalogue d'une base physique, au format des requêtes de scripts/catalog/.

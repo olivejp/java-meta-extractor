@@ -186,6 +186,27 @@ class MainTest {
     tree.get("diagnostics").forEach(d -> codes.add(d.get("level").asText() + " " + d.get("code").asText()));
     assertThat(new TreeSet<>(codes)).contains("error PARSE_ERROR", "warning NO_DEPLOYABLE_MODULE");
     assertThat(tree.get("application").get("id").asText()).isEqualTo("app-casse");
+    // Rapport lisible : niveau, code, libellé, origine, ce qui manque, ce qu'il faut faire, emplacement
+    assertThat(broken.err())
+        .contains("ERREUR · PARSE_ERROR · code source non analysable · 1 occurrence")
+        .contains("origine : code du dépôt analysé")
+        .contains("à faire : ouvrir le fichier cité")
+        .contains("- src/main/java/x/Casse.java — ")
+        .contains("AVERTISSEMENT · NO_DEPLOYABLE_MODULE");
+  }
+
+  @Test
+  void listeDesDiagnostics() throws IOException {
+    Run r = run("--list-diagnostics");
+    assertThat(r.exit()).as(r.err()).isZero();
+    assertThat(r.err()).contains("URL_UNRESOLVED · URL d'appel REST non résolue").contains("à faire : ");
+  }
+
+  @Test
+  void depotIntrouvableEnUneLigne(@TempDir Path out) throws IOException {
+    Run r = run("--repo", out.resolve("absent").toString(), "--out", out.toString());
+    assertThat(r.exit()).isEqualTo(Main.EXIT_USAGE);
+    assertThat(r.err()).contains("--repo : répertoire introuvable").doesNotContain("\tat ");
   }
 
   @Test

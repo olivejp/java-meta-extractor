@@ -285,4 +285,69 @@ class DatasourceResolverTest {
         .findFirst().orElseThrow();
     assertThat(client.id()).startsWith("app:sql:");
   }
+
+  @Test
+  void jdbi(@TempDir Path dir) throws Exception {
+    ExtractionContext base = TestContexts.ofSources(dir, NamingStrategy.springBoot(),
+        """
+        package fr.x.config;
+        import javax.sql.DataSource;
+        import org.jdbi.v3.core.Jdbi;
+        import org.springframework.beans.factory.annotation.Qualifier;
+        import org.springframework.boot.context.properties.ConfigurationProperties;
+        import org.springframework.context.annotation.*;
+        @Configuration
+        public class Conf {
+          @Bean @Primary @ConfigurationProperties("app.ds.one")
+          public DataSource one() { return null; }
+          @Bean @ConfigurationProperties("app.ds.two")
+          public DataSource two() { return null; }
+          @Bean
+          public Jdbi pgJdbi(@Qualifier("two") DataSource ds) { return Jdbi.create(ds); }
+          @Bean
+          public fr.x.dao.Interne interne(Jdbi pgJdbi) { return pgJdbi.onDemand(fr.x.dao.Interne.class); }
+          @Bean
+          public fr.x.dao.Externe externe(Jdbi db400Jdbi) { return db400Jdbi.onDemand(fr.x.dao.Externe.class); }
+        }
+        """,
+        """
+        package fr.x.dao;
+        public interface Interne {
+          @org.jdbi.v3.sqlobject.statement.SqlQuery("SELECT * FROM interne")
+          java.util.List<Object> tous();
+        }
+        """,
+        """
+        package fr.x.dao;
+        public interface Externe {
+          @org.jdbi.v3.sqlobject.statement.SqlQuery("SELECT * FROM externe")
+          java.util.List<Object> tous();
+        }
+        """,
+        """
+        package fr.x.dao;
+        public interface SansFabrique {
+          @org.jdbi.v3.sqlobject.statement.SqlQuery("SELECT * FROM sans_fabrique")
+          java.util.List<Object> tous();
+        }
+        """);
+    Config config = Config.empty();
+    config.put(new ConfigEntry("app.ds.one.url", "jdbc:postgresql://h/db?currentSchema=s1", "a.yml", 1));
+    config.put(new ConfigEntry("app.ds.two.jdbc-url", "jdbc:as400://h;libraries=LIB2", "a.yml", 2));
+    List<Path> java;
+    try (Stream<Path> s = Files.walk(dir)) {
+      java = s.filter(f -> f.toString().endsWith(".java")).sorted().toList();
+    }
+    Run r = run(TestContexts.build(base.root(), java, "app", NamingStrategy.springBoot(), new Diagnostics(),
+        List.of(WebModule.ROOT), config, List.of()));
+    // Bean Jdbi du dépôt : remonté jusqu'à sa DataSource ; bean Jdbi défini ailleurs : jamais la DataSource
+    // principale ; sans fabrique visible : l'unique bean Jdbi du dépôt.
+    assertThat(r.sql()).containsExactly(
+        "fr.x.dao.Externe#tous jdbi null null.externe",
+        "fr.x.dao.Interne#tous jdbi two LIB2.interne",
+        "fr.x.dao.SansFabrique#tous jdbi two LIB2.sans_fabrique");
+    assertThat(r.messages("DATASOURCE_AMBIGUOUS")).containsExactly(
+        "Source de données indéterminée pour le SQL de fr.x.dao.Externe#tous : bean Jdbi « db400Jdbi » défini "
+            + "hors du dépôt (one, two)");
+  }
 }

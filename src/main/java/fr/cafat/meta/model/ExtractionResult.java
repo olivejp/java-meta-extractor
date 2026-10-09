@@ -15,5 +15,5 @@ public record ExtractionResult(
     @JsonProperty("messaging") List<Messaging> messaging,
     @JsonProperty("diagnostics") List<Diagnostic> diagnostics) {
 
-  public static final String CONTRACT_VERSION = "1.0";
+  public static final String CONTRACT_VERSION = "1.1";
 }

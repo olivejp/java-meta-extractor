@@ -14,7 +14,10 @@ import net.sf.jsqlparser.parser.ParseException;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.Statements;
+import net.sf.jsqlparser.statement.alter.Alter;
+import net.sf.jsqlparser.statement.create.table.CreateTable;
 import net.sf.jsqlparser.statement.delete.Delete;
+import net.sf.jsqlparser.statement.drop.Drop;
 import net.sf.jsqlparser.statement.insert.Insert;
 import net.sf.jsqlparser.statement.merge.Merge;
 import net.sf.jsqlparser.statement.truncate.Truncate;
@@ -45,6 +48,10 @@ public final class SqlAnalyzer {
   private static final String IDENT = "[A-Za-z_$#@][\\w$#@]*";
   private static final Pattern SYSTEM_NAMING = Pattern.compile("(?<![\\w$#@.])(" + IDENT + ")/(" + IDENT + ")");
   private static final Pattern MYBATIS_PARAM = Pattern.compile("[#$]\\{[^}]*}");
+  /** Paramètre nommé JDBI ({@code :id}, {@code :u.numeroUnion}), pas un transtypage PostgreSQL ({@code ::text}). */
+  private static final Pattern JDBI_NAMED = Pattern.compile("(?<![:\\w]):([A-Za-z_][\\w]*(?:\\.[A-Za-z_][\\w]*)*)");
+  /** Attribut ou liste JDBI substitué dans le texte ({@code <table>}, {@code in (<ids>)}). */
+  private static final Pattern JDBI_DEFINE = Pattern.compile("<([A-Za-z_][\\w]*)>");
   private static final Pattern HIBERNATE_QUALIFIER = Pattern.compile("\\{h-(?:schema|catalog|domain)}");
   private static final Pattern HIBERNATE_ALIAS = Pattern.compile("\\{(" + IDENT + "(?:\\." + IDENT + ")*\\.\\*)}");
   private static final Set<String> TABLE_KEYWORDS = Set.of("FROM", "JOIN", "INTO", "UPDATE", "TABLE", "USING");
@@ -88,6 +95,14 @@ public final class SqlAnalyzer {
   /** Paramètres MyBatis {@code #{x}} et {@code ${x}} remplacés par {@code ?} pour le parseur. */
   public static String withoutMyBatisParams(String sql) {
     return MYBATIS_PARAM.matcher(sql).replaceAll("?");
+  }
+
+  /**
+   * Remplace les paramètres JDBI par {@code ?} pour l'analyse : paramètres nommés ({@code :x},
+   * {@code :bean.champ}) et attributs ou listes substitués ({@code <x>}).
+   */
+  public static String withoutJdbiParams(String sql) {
+    return JDBI_DEFINE.matcher(JDBI_NAMED.matcher(sql).replaceAll("?")).replaceAll("?");
   }
 
   /**
@@ -173,6 +188,12 @@ public final class SqlAnalyzer {
       }
     } else if (st instanceof Upsert u) {
       out.add(u.getTable());
+    } else if (st instanceof CreateTable c) {
+      out.add(c.getTable());
+    } else if (st instanceof Alter a) {
+      out.add(a.getTable());
+    } else if (st instanceof Drop d && ("TABLE".equalsIgnoreCase(d.getType()) || "VIEW".equalsIgnoreCase(d.getType()))) {
+      out.add(d.getName());
     }
     return out;
   }

@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["contract_version", "application", "entities", "relations", "sql_accesses", "endpoints", "calls", "messaging", "diagnostics"],
   "properties": {
-    "contract_version": { "const": "1.0" },
+    "contract_version": { "const": "1.1" },
     "application": { "$ref": "#/$defs/application" },
     "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
     "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
@@ -199,7 +199,7 @@
       "required": ["id", "origin", "datasource", "sql", "tables", "parsed", "caller", "source"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "origin": { "enum": ["native_query", "named_native_query", "jdbc_template", "named_parameter_jdbc_template", "mybatis_xml", "mybatis_annotation", "string_literal"] },
+        "origin": { "enum": ["native_query", "named_native_query", "jdbc_template", "named_parameter_jdbc_template", "mybatis_xml", "mybatis_annotation", "jdbi", "string_literal"] },
         "datasource": { "$ref": "#/$defs/nullable_string" },
         "sql": { "type": "string", "minLength": 1 },
         "tables": { "type": "array", "items": { "$ref": "#/$defs/sql_table" } },

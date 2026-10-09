@@ -17,9 +17,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamException;
 import spoon.reflect.code.BinaryOperatorKind;
@@ -53,7 +57,8 @@ import spoon.reflect.visitor.filter.TypeFilter;
 
 /**
  * Accès SQL hors entités : requêtes natives Spring Data et JPA, JdbcTemplate, MyBatis (XML et
- * annotations) et littéraux SQL. Chaque accès porte un indice de source de données, résolu ensuite
+ * annotations), JDBI SQL Object ({@code @SqlQuery}, {@code @SqlUpdate}, {@code @SqlBatch},
+ * {@code @SqlCall}, {@code @SqlScript}) et littéraux SQL. Chaque accès porte un indice de source de données, résolu ensuite
  * par {@code DatasourceResolver}.
  *
  * <p>Un littéral déjà rattaché à une origine explicite (y compris via une constante, une variable
@@ -67,6 +72,7 @@ public final class SqlExtractor {
   public static final String NAMED_PARAMETER_JDBC_TEMPLATE = "named_parameter_jdbc_template";
   public static final String MYBATIS_XML = "mybatis_xml";
   public static final String MYBATIS_ANNOTATION = "mybatis_annotation";
+  public static final String JDBI = "jdbi";
   public static final String STRING_LITERAL = "string_literal";
 
   /**
@@ -91,6 +97,13 @@ public final class SqlExtractor {
   private static final Set<String> QUALIFIERS = Set.of("org.springframework.beans.factory.annotation",
       "javax.inject", "jakarta.inject", "javax.annotation", "jakarta.annotation");
   private static final List<String> MYBATIS_STATEMENTS = List.of("Select", "Insert", "Update", "Delete");
+  /** JDBI 3 et JDBI 2 (org.skife). */
+  private static final Set<String> JDBI_STATEMENT = Set.of("org.jdbi.v3.sqlobject.statement",
+      "org.skife.jdbi.v2.sqlobject");
+  private static final List<String> JDBI_STATEMENTS = List.of("SqlQuery", "SqlUpdate", "SqlBatch", "SqlCall",
+      "SqlScript");
+  private static final Set<String> JDBI_FACTORIES = Set.of("onDemand", "attach");
+  private static final Set<String> SPRING_CONTEXT = Set.of("org.springframework.context.annotation");
 
   private static final Set<String> NATIVE_METHODS = Set.of("createNativeQuery", "createSQLQuery");
   private static final Set<String> JPQL_METHODS = Set.of("createQuery", "createNamedQuery", "createSelectionQuery",
@@ -111,6 +124,8 @@ public final class SqlExtractor {
 
   private final ExtractionContext ctx;
   private final List<SqlDraft> out = new ArrayList<>();
+  /** Interface JDBI → bean Jdbi qui la crée (calculé à la demande). */
+  private Map<String, String> jdbiBeans;
   /** Littéraux déjà rattachés à une origine explicite ou à une requête JPQL. */
   private final Set<CtLiteral<?>> consumed = Collections.newSetFromMap(new IdentityHashMap<>());
 
@@ -183,7 +198,94 @@ public final class SqlExtractor {
           mybatisAnnotation(a, caller, hint);
         }
       }
+      List<CtAnnotation<?>> jdbi = jdbiStatements(m);
+      if (!jdbi.isEmpty()) {
+        DatasourceHint jdbiHint = new DatasourceHint(owner, jdbiBeans().get(owner), null, null);
+        for (CtAnnotation<?> a : jdbi) {
+          jdbi(a, caller, jdbiHint);
+        }
+      }
     }
+  }
+
+  /** Annotations d'instruction JDBI d'une méthode, y compris les {@code @SqlScript} répétés ({@code @SqlScripts}). */
+  private static List<CtAnnotation<?>> jdbiStatements(CtMethod<?> m) {
+    List<CtAnnotation<?>> out = new ArrayList<>();
+    for (String kind : JDBI_STATEMENTS) {
+      out.addAll(Annotations.findAll(m, JDBI_STATEMENT, kind));
+    }
+    for (CtAnnotation<?> container : Annotations.findAll(m, JDBI_STATEMENT, "SqlScripts")) {
+      out.addAll(Annotations.nested(container, "value"));
+    }
+    out.sort(Comparator.comparingInt(Provenance::offset));
+    return out;
+  }
+
+  /**
+   * Interface JDBI → nom du bean Jdbi qui la crée, lu dans les méthodes {@code @Bean} du dépôt qui ont un
+   * seul paramètre de type Jdbi : {@code @Qualifier}, sinon nom du paramètre (injection par nom). L'interface
+   * est le type rendu, ou la classe passée à {@code jdbi.onDemand(X.class)} / {@code attach}. Une interface
+   * créée par deux beans Jdbi différents n'est pas rattachée.
+   */
+  private Map<String, String> jdbiBeans() {
+    if (jdbiBeans != null) {
+      return jdbiBeans;
+    }
+    Map<String, String> out = new HashMap<>();
+    Set<String> conflicts = new HashSet<>();
+    for (CtType<?> t : ctx.types().all()) {
+      List<CtMethod<?>> methods = new ArrayList<>(t.getMethods());
+      methods.sort(Comparator.comparingInt(Provenance::offset));
+      for (CtMethod<?> m : methods) {
+        if (!Annotations.has(m, SPRING_CONTEXT, "Bean")) {
+          continue;
+        }
+        List<CtParameter<?>> jdbis = m.getParameters().stream()
+            .filter(p -> p.getType() != null && "Jdbi".equals(Types.simpleName(p.getType()))).toList();
+        if (jdbis.size() != 1) {
+          continue;
+        }
+        String q = qualifier(jdbis.get(0));
+        String bean = q != null ? q : jdbis.get(0).getSimpleName();
+        Set<String> daos = new TreeSet<>();
+        if (m.getType() != null && m.getType().getQualifiedName() != null) {
+          daos.add(m.getType().getQualifiedName());
+        }
+        for (CtInvocation<?> inv : m.getElements(new TypeFilter<>(CtInvocation.class))) {
+          if (JDBI_FACTORIES.contains(inv.getExecutable().getSimpleName()) && !inv.getArguments().isEmpty()
+              && inv.getArguments().get(0) instanceof CtFieldRead<?> f && "class".equals(f.getVariable().getSimpleName())
+              && f.getVariable().getDeclaringType() != null) {
+            daos.add(f.getVariable().getDeclaringType().getQualifiedName());
+          }
+        }
+        for (String dao : daos) {
+          String prev = out.putIfAbsent(dao, bean);
+          if (prev != null && !prev.equals(bean)) {
+            conflicts.add(dao);
+          }
+        }
+      }
+    }
+    conflicts.forEach(out::remove);
+    jdbiBeans = out;
+    return out;
+  }
+
+  /**
+   * Instruction JDBI : le SQL est la valeur de l'annotation. Sans valeur, JDBI lit le SQL ailleurs
+   * (localisateur de fichier .sql ou de gabarit, clé = nom de la méthode) : l'accès n'est pas lu et
+   * le diagnostic le dit.
+   */
+  private void jdbi(CtAnnotation<?> a, String caller, DatasourceHint hint) {
+    CtExpression<?> value = Annotations.value(a, "value");
+    PartialString sql = value == null ? null : ctx.eval().eval(value);
+    if (sql == null || literalText(sql).isBlank() && sql.isComplete()) {
+      ctx.diagnostics().warning("SQL_UNRESOLVED", "SQL JDBI hors de l'annotation @"
+          + a.getAnnotationType().getSimpleName() + " (fichier .sql ou gabarit lu par un localisateur JDBI) dans "
+          + caller, ctx.source(a));
+      return;
+    }
+    add(JDBI, sql, false, caller, a, hint);
   }
 
   private List<CtAnnotation<?>> namedNativeQueries(CtType<?> t) {
@@ -519,6 +621,9 @@ public final class SqlExtractor {
     }
     if (mybatis) {
       parseable = SqlAnalyzer.withoutMyBatisParams(parseable);
+    }
+    if (JDBI.equals(origin)) {
+      parseable = SqlAnalyzer.withoutJdbiParams(parseable);
     }
     SqlAnalyzer.Analysis analysis = SqlAnalyzer.analyze(parseable);
     boolean parsed = analysis.parsed() && !dynamic;

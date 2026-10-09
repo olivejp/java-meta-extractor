@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: mart_node
+    description: Nœuds du graphe (sa, ssa, application, application_externe, table, file_jms).
+    columns:
+      - name: node_id
+        data_tests: [unique, not_null]
+  - name: mart_edge
+    description: Arêtes du graphe (appartient_a, appelle_rest, utilise_table, produit, consomme).
+    columns:
+      - name: from_id
+        data_tests:
+          - relationships: {to: ref('mart_node'), field: node_id}
+      - name: to_id
+        data_tests:
+          - relationships: {to: ref('mart_node'), field: node_id}
+  - name: mart_flux_ssa
+    description: Flux agrégés entre SSA ; inter_ssa = false pour les flux internes.
+  - name: mart_crud_ssa_table
+    columns:
+      - name: crud_id
+        data_tests: [unique, not_null]
+  - name: mart_anomaly
+    columns:
+      - name: severite
+        data_tests:
+          - accepted_values: {values: [error, warning, info]}

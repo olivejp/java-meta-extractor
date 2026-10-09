@@ -1,0 +1,34 @@
+version: 2
+
+seeds:
+  - name: datasource_binding
+    description: >
+      Rattache une source de données d'une application (son id local dans le JSON) à une base physique.
+      Deux applications partagent une table seulement si leurs sources pointent vers la même base.
+      default_schema remplace celui de l'extracteur. Les lignes AS400 livrées viennent de l'URL JDBC
+      (librairies=…) et du nom de propriété ${as400.server-name} commun aux trois applications : à confirmer.
+    config:
+      column_types: {application: text, datasource: text, database: text, default_schema: text}
+
+  - name: urba_sa
+    description: Systèmes applicatifs déclarés. Un SA déduit de la convention mais absent d'ici reste valable, sans libellé.
+    config:
+      column_types: {sa_code: text, libelle: text}
+
+  - name: urba_ssa
+    description: Sous-systèmes applicatifs déclarés, chacun dans un SA.
+    config:
+      column_types: {sa_code: text, ssa_code: text, libelle: text}
+
+  - name: urba_application
+    description: >
+      Exceptions à la convention s-<sa>-<ssa> : une ligne par application mal nommée ou rangée ailleurs.
+    config:
+      column_types: {application: text, sa_code: text, ssa_code: text, commentaire: text}
+
+  - name: urba_data_owner
+    description: >
+      SSA propriétaire de tables, par motifs LIKE (majuscules) sur le schéma et le nom.
+      La règle de plus forte priorité l'emporte sur la convention (bibliothèque M<SA><SSA>, préfixe <SSA>_).
+    config:
+      column_types: {database: text, schema_pattern: text, table_pattern: text, sa_code: text, ssa_code: text, priority: integer, commentaire: text}

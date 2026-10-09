@@ -44,17 +44,66 @@ docker run --rm --network none -v /chemin/vers/s-gen-gpp:/repo:ro -v "$PWD/out:/
 | `--profile P[,P…]` | Profils Spring actifs, dans l'ordre. |
 | `--fail-on-warning` | Un diagnostic `warning` donne aussi le code 1. |
 | `--view-schemas S[,S…]` | Schémas dont toutes les tables sont des vues. Défaut : `MGENGPP`. |
+| `--max-warnings N` | Occurrences affichées par code d'avertissement dans le rapport. Défaut : 5. |
+| `--stacktrace` | Affiche la pile Java complète des erreurs internes. |
+| `--list-diagnostics` | Liste les codes de diagnostic avec leur origine, ce qui manque et ce qu'il faut faire. |
 
 Codes de sortie (le plus élevé l'emporte) :
 
 | Code | Signification |
 |---|---|
 | 0 | Succès. |
-| 1 | Au moins un diagnostic `error`, ou `warning` avec `--fail-on-warning`. |
+| 1 | Au moins un diagnostic `error` (dont une étape en échec, `EXTRACTION_STEP_FAILED`), ou `warning` avec `--fail-on-warning`. |
 | 2 | Sortie non conforme au schéma. Le fichier est alors écrit sous `<application>.json.invalid` et les erreurs sur stderr. |
-| 3 | Erreur d'usage (options), dépôt introuvable ou exception interne. |
+| 3 | Erreur d'usage (options), dépôt introuvable ou exception interne qui empêche toute sortie. |
 
-Le résumé (nombre d'entités, de relations, d'accès SQL, d'endpoints, d'appels, d'échanges JMS et de diagnostics par niveau) s'écrit sur stderr, jamais dans le JSON.
+## Récupérer les dépôts
+
+`scripts/fetch_repos.py` (Python 3, sans dépendance) clone ou met à jour les dépôts Java d'un projet Bitbucket sur une branche, en clones superficiels. Le répertoire produit se passe tel quel à `--repos-dir`.
+
+```bash
+export BITBUCKET_URL=https://<serveur-bitbucket> BITBUCKET_TOKEN=<jeton d'accès personnel, lecture>
+scripts/fetch_repos.py ~/carto/depots --project gen --branch master
+java -jar target/java-meta-extractor.jar --repos-dir ~/carto/depots --out out/
+```
+
+Sans jeton d'API, `--repos-file liste.txt` lit les noms de dépôts dans un fichier. Les clones passent alors par `--ssh-base`, par défaut `ssh://git@merlin-ref4.intra.cafat.nc:7999`. Avec l'API, `--protocol ssh` (défaut) ou `http` choisit le lien de clonage. Git ne pose jamais de question : la clé SSH doit être dans l'agent, et un certificat interne se déclare par `SSL_CERT_FILE`.
+
+Le répertoire cible appartient au script : il refuse un répertoire non vide qu'il n'a pas créé, et à chaque passage il efface les modifications locales et supprime les dépôts sortis du périmètre. Seuls les dépôts avec un `pom.xml` ou un build Gradle à la racine y restent.
+
+`manifest.tsv`, trié par dépôt et sans date, donne pour chacun le statut, l'action, le commit et une note :
+
+| Statut | Sens |
+|---|---|
+| `java` | Cloné ou à jour, analysé par `--repos-dir`. |
+| `non_java` | Pas de build à la racine ; la note signale un build plus bas dans l'arborescence. Le clone est supprimé et n'est refait qu'au commit suivant. |
+| `no_branch` | Branche demandée absente. |
+| `archived` | Dépôt archivé dans Bitbucket. |
+| `removed` | Dépôt disparu du projet ; clone supprimé. |
+| `error` | Accès ou commande git en échec. Un clone précédent reste en place, à son ancien commit. |
+
+Codes de sortie : 0 succès, 1 au moins un dépôt en `error`, 3 erreur d'usage ou API inaccessible.
+
+## Lire les erreurs
+
+Tout s'écrit sur stderr, jamais dans le JSON. Pour chaque application, une ligne de résumé (nombre d'entités, de relations, d'accès SQL, d'endpoints, d'appels, d'échanges JMS et de diagnostics par niveau), puis un rapport groupé par niveau et par code :
+
+```text
+  AVERTISSEMENT · URL_UNRESOLVED · URL d'appel REST non résolue · 1 occurrence
+    origine : valeur connue seulement à l'exécution ou au déploiement
+    manque  : l'appel est gardé sans URL complète ni application cible
+    à faire : vérifier que les propriétés citées « inconnu : … » sont dans application*.yml du dépôt ; …
+    - src/main/java/nc/cafat/gen/ridet/service/EntrepriseService.java:189 — URL non résolue : ${sgenedt.editer.url} (inconnu : api.host)
+```
+
+- **origine** dit où chercher la correction : code du dépôt analysé, configuration du dépôt, options de lancement, valeur connue seulement à l'exécution, bibliothèque hors du dépôt, ou limite de l'extracteur ;
+- **manque** dit ce qui est absent ou incomplet dans le JSON ;
+- **à faire** dit quoi corriger, ou pourquoi il n'y a rien à faire ;
+- chaque occurrence donne `fichier:ligne` (relatif au dépôt) et le message.
+
+Toutes les erreurs sont listées, 5 occurrences par code d'avertissement (`--max-warnings`) et une par code d'info ; le JSON garde la liste complète. `--list-diagnostics` affiche le catalogue complet (`extract/DiagnosticCatalog`).
+
+**Erreurs internes.** Chaque étape de l'extraction (entités JPA, SQL, sources de données, endpoints, appels, JMS) est isolée : si elle lève une exception, elle devient un diagnostic `error` `EXTRACTION_STEP_FAILED` qui nomme l'étape, l'exception et la ligne de l'extracteur en cause (`à CallExtractor.java:86, CallExtractor.extract`), et les autres étapes produisent leur résultat. Une exception dans une étape sans laquelle rien ne peut suivre (structure du dépôt, configuration, lecture du code) arrête le dépôt avec le code 3 et un bloc `ÉCHEC DE L'EXTRACTION` (étape, erreur, à faire). `--stacktrace` ajoute la pile complète.
 
 ## Unités déployables
 
@@ -101,6 +150,8 @@ Les fichiers de référence des fixtures sont dans `src/test/resources/golden/`.
 
 ### Diagnostics
 
+Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans `java -jar target/java-meta-extractor.jar --list-diagnostics`.
+
 | Code | Niveau | Cause |
 |---|---|---|
 | `PARSE_ERROR` | error | Fichier Java non analysable. |
@@ -122,6 +173,8 @@ Les fichiers de référence des fixtures sont dans `src/test/resources/golden/`.
 | `TARGET_APP_UNKNOWN` | info | Application cible d'un appel non déduite de l'hôte. |
 | `PROFILE_NOT_APPLIED` | info | Profils disponibles mais aucun demandé. |
 | `SUBRESOURCE_LOCATOR_IGNORED` | info | Localisateur de sous-ressource JAX-RS non suivi. |
+| `KOTLIN_SKIPPED` | warning | Fichiers Kotlin présents mais traduction désactivée. |
+| `EXTRACTION_STEP_FAILED` | error | Exception interne dans une étape de l'extraction, isolée (voir « Lire les erreurs »). |
 
 ## Règles par défaut
 
@@ -140,8 +193,12 @@ Les fichiers de référence des fixtures sont dans `src/test/resources/golden/`.
   5. bean de même nom que le champ ;
   6. bean `@Primary` ou unique de la famille (JdbcTemplate, NamedParameterJdbcTemplate, EntityManagerFactory, MyBatis) ;
   7. DataSource `@Primary` ou unique si la famille n'a aucun bean déclaré (auto-configuration Spring Boot).
+
+  Pour le SQL JDBI, l'interface est reliée au bean `Jdbi` qui la crée : méthode `@Bean` du dépôt avec un seul paramètre `Jdbi` (son `@Qualifier`, sinon son nom), qui rend l'interface ou appelle `jdbi.onDemand(X.class)` / `attach`. Ce bean, s'il est déclaré dans le dépôt, est remonté jusqu'à sa DataSource ; s'il est défini ailleurs (bibliothèque), la source reste `null` avec `DATASOURCE_AMBIGUOUS` qui nomme le bean. Sans fabrique visible : l'unique bean `Jdbi` du dépôt. Jamais la DataSource principale, Jdbi n'ayant pas d'auto-configuration.
 - **Type de base** : lu dans l'URL JDBC, sinon dans le pilote (`driver-class-name`) ou le dialecte (`database-platform`, `hibernate.dialect`) de la source ou de son préfixe JPA voisin (`spring.x.jpa` pour `spring.x.datasource`).
 - **SQL natif** : `{h-schema}`, `{h-catalog}` et `{alias.*}` sont retirés avant l'analyse ; la table reçoit ensuite le schéma par défaut.
+- **SQL JDBI** (origine `jdbi`, JDBI 3 et JDBI 2) : valeur de `@SqlQuery`, `@SqlUpdate`, `@SqlBatch`, `@SqlCall`, `@SqlScript` (répétée ou dans `@SqlScripts`, un accès par script), en Java comme en Kotlin. Les paramètres `:x`, `:bean.champ` et les attributs `<x>` sont remplacés par `?` pour l'analyse, le texte gardé est l'original. Sans valeur, le SQL est lu par JDBI dans un fichier (localisateur) : `SQL_UNRESOLVED`.
+- **Accès en écriture** : `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `TRUNCATE`, `UPSERT`, et les ordres de structure `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE` / `DROP VIEW`.
 - **Destination JMS injectée** (`Queue`, `Topic`, `Destination`) : bean `@Bean` désigné par `@Qualifier`, sinon du nom du champ, sinon seul bean de type compatible.
 - **URL d'appel** :
   - les méthodes du dépôt sont dépliées avec leurs arguments, y compris les clés calculées de `Environment.getProperty` (`PREFIXE + service + ".path." + nom`) ;
@@ -166,7 +223,7 @@ Les fichiers de référence des fixtures sont dans `src/test/resources/golden/`.
    - parcourir les types dans un ordre stable (`Provenance::offset`, nom qualifié) ;
    - ne jamais dépendre de l'égalité structurelle de Spoon : utiliser des collections par identité ;
    - calculer l'`id` à partir du contenu.
-3. Étendre le modèle et `schema/meta-extract.schema.json`, puis brancher l'extracteur dans `cli/Pipeline` et `output/Assembler`.
+3. Étendre le modèle et `schema/meta-extract.schema.json`, puis brancher l'extracteur dans `cli/Pipeline` (dans un `isolated(…)`, avec un nom d'étape lisible et une valeur de repli) et `output/Assembler`. Tout nouveau code de diagnostic s'ajoute à `extract/DiagnosticCatalog`, sinon `DiagnosticCatalogTest` échoue.
 4. Tester l'extracteur seul (`TestContexts.ofSources` ou une fixture), puis régénérer les fichiers de référence et relire le diff :
 
 ```bash
@@ -187,6 +244,7 @@ La suite comprend :
 - l'absence de secrets dans la sortie ;
 - la validation par le schéma ;
 - les codes de sortie ;
+- le rapport lisible, et un catalogue qui explique chaque code émis ;
 - la performance : 121 classes en moins de 60 s, soit environ 1 s en pratique.
 
 ## Limites connues
@@ -198,6 +256,7 @@ La suite comprend :
   - Un SQL reçu en paramètre donne `SQL_UNRESOLVED`.
   - Pour un `StringBuilder` construit hors de la méthode, seul le premier morceau est lu.
   - Les sous-classes maison de `JdbcTemplate` ne sont pas reconnues.
+  - JDBI : le SQL des fichiers `.sql` ou des gabarits (`@UseClasspathSqlLocator`, `@UseStringTemplateSqlLocator`) et l'API fluide (`handle.createQuery(...)`) ne sont pas lus ; une interface enregistrée par un post-processeur maison (sans méthode `@Bean`) n'est reliée à aucun bean Jdbi.
   - `${schema}.table` perd son schéma.
 - **Sources de données**
   - En DB2 avec `naming=system`, la première bibliothèque de `libraries` est prise comme schéma par défaut.

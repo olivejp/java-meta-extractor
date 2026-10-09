@@ -1,0 +1,4 @@
+application,datasource,database,default_schema
+s-gen-cli,as400,AS400,MGENCLI
+s-gen-geo,as400,AS400,MGENGEO
+s-gen-gpp,as400,AS400,MGENGPP

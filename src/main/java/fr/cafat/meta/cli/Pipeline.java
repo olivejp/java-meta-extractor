@@ -7,6 +7,7 @@ import fr.cafat.meta.config.DatasourceDetector.Detected;
 import fr.cafat.meta.config.PersistenceUnit;
 import fr.cafat.meta.config.PersistenceXmlReader;
 import fr.cafat.meta.extract.Diagnostics;
+import fr.cafat.meta.extract.Failures.StepFailure;
 import fr.cafat.meta.extract.ExtractionContext;
 import fr.cafat.meta.extract.PersistenceExtractor;
 import fr.cafat.meta.extract.calls.CallExtractor;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 import spoon.reflect.CtModel;
 import spoon.reflect.declaration.CtType;
 
@@ -71,8 +73,11 @@ public final class Pipeline {
       KotlinFactory kotlin) {
   }
 
-  /** Résultat d'une unité : nom de fichier de sortie (sans extension) et contenu. */
-  public record Output(String name, ExtractionResult result) {
+  /**
+   * Résultat d'une unité : nom de fichier de sortie (sans extension), contenu, et exceptions des étapes
+   * en échec (déjà résumées en diagnostics {@code EXTRACTION_STEP_FAILED}).
+   */
+  public record Output(String name, ExtractionResult result, List<Throwable> failures) {
   }
 
   private static final Set<String> SPRING_BOOT = Set.of("org.springframework.boot.autoconfigure");
@@ -85,13 +90,15 @@ public final class Pipeline {
     Path root = repo.toAbsolutePath().normalize();
     Diagnostics scanDiagnostics = new Diagnostics();
     RepoScanner scanner = new RepoScanner(root, scanDiagnostics);
-    List<DeployableUnit> units = scanner.deployableUnits();
+    List<DeployableUnit> units = fatal("lecture de la structure du dépôt (pom.xml, build Gradle, modules)",
+        scanner::deployableUnits);
     String repository = GitInfo.remoteOrigin(root);
     String commit = options.commit() != null ? options.commit() : GitInfo.headCommit(root);
 
     List<Prepared> prepared = new ArrayList<>();
     for (DeployableUnit unit : units) {
-      prepared.add(prepare(scanner, unit, options));
+      prepared.add(fatal("lecture de la configuration du module " + unit.main().artifactId(),
+          () -> prepare(scanner, unit, options)));
     }
     List<String> names = names(prepared, options.appName());
     List<Output> out = new ArrayList<>();
@@ -102,9 +109,36 @@ public final class Pipeline {
         diags.add(d.level(), d.code(), d.message(), d.source());
       }
       p.diagnostics().all().forEach(d -> diags.add(d.level(), d.code(), d.message(), d.source()));
-      out.add(new Output(names.get(i), extract(scanner, p, names.get(i), repository, commit, options, diags)));
+      String name = names.get(i);
+      ExtractionResult result = fatal("extraction de l'application " + name,
+          () -> extract(scanner, p, name, repository, commit, options, diags));
+      out.add(new Output(name, result, diags.failures()));
     }
     return out;
+  }
+
+  /** Étape sans laquelle rien ne peut suivre : son exception arrête le dépôt, avec le nom de l'étape. */
+  private static <T> T fatal(String step, Supplier<T> body) {
+    try {
+      return body.get();
+    } catch (StepFailure e) {
+      throw e;
+    } catch (RuntimeException | StackOverflowError e) {
+      throw new StepFailure(step, e);
+    }
+  }
+
+  /**
+   * Étape isolée : son exception devient un diagnostic {@code EXTRACTION_STEP_FAILED} et la valeur de
+   * repli est utilisée, pour que les autres étapes produisent quand même leur résultat.
+   */
+  private static <T> T isolated(Diagnostics diags, String step, Supplier<T> body, Supplier<T> fallback) {
+    try {
+      return body.get();
+    } catch (RuntimeException | StackOverflowError e) {
+      diags.failure(step, e);
+      return fallback.get();
+    }
   }
 
   /** Fichiers et configuration d'une unité, avant l'analyse du code. */
@@ -169,7 +203,8 @@ public final class Pipeline {
       diags.warning("KOTLIN_SKIPPED", p.kotlin().size() + " fichier(s) Kotlin non analysé(s)",
           fr.cafat.meta.model.Source.file(scanner.relative(p.kotlin().get(0)), null));
     }
-    CtModel model = SpoonLoader.load(p.java(), p.kotlin(), kotlin, diags, provenance::relative);
+    CtModel model = fatal("lecture du code Java et Kotlin",
+        () -> SpoonLoader.load(p.java(), p.kotlin(), kotlin, diags, provenance::relative));
     TypeIndex index = new TypeIndex(model);
     boolean springBoot = isSpringBoot(p.unit(), index);
     List<WebModule> webModules = WebModules.detect(p.unit(), p.config(), diags, scanner::relative);
@@ -177,14 +212,19 @@ public final class Pipeline {
     ExtractionContext ctx = new ExtractionContext(appId, root, model, index, new ValueEval(index), provenance,
         diags, p.config(), naming, options.viewSchemas(), p.persistenceUnits(), p.resources(), webModules);
 
-    PersistenceExtractor.Result persistence = PersistenceExtractor.run(ctx);
-    List<SqlExtractor.SqlDraft> sql = new SqlExtractor(ctx).extract();
-    List<Detected> detected = DatasourceDetector.detect(p.config(), p.persistenceUnits());
-    DatasourceResolver.Result resolved = new DatasourceResolver(ctx, detected, persistence.drafts())
-        .resolve(sql, persistence.relations());
-    List<Endpoint> endpoints = new EndpointExtractor(ctx).extract();
-    List<Call> calls = new CallExtractor(ctx).extract();
-    List<Messaging> messaging = new JmsExtractor(ctx).extract();
+    PersistenceExtractor.Result persistence = isolated(diags, "entités et relations JPA",
+        () -> PersistenceExtractor.run(ctx), () -> new PersistenceExtractor.Result(new HashMap<>(), List.of()));
+    List<SqlExtractor.SqlDraft> sql = isolated(diags, "accès SQL", () -> new SqlExtractor(ctx).extract(), List::of);
+    List<Detected> detected = isolated(diags, "détection des sources de données",
+        () -> DatasourceDetector.detect(p.config(), p.persistenceUnits()), List::of);
+    DatasourceResolver.Result resolved = isolated(diags, "rattachement aux sources de données",
+        () -> new DatasourceResolver(ctx, detected, persistence.drafts()).resolve(sql, persistence.relations()),
+        () -> new DatasourceResolver.Result(sql.stream().map(SqlExtractor.SqlDraft::access).toList(),
+            persistence.relations()));
+    List<Endpoint> endpoints = isolated(diags, "endpoints REST exposés", () -> new EndpointExtractor(ctx).extract(),
+        List::of);
+    List<Call> calls = isolated(diags, "appels REST sortants", () -> new CallExtractor(ctx).extract(), List::of);
+    List<Messaging> messaging = isolated(diags, "échanges JMS", () -> new JmsExtractor(ctx).extract(), List::of);
 
     List<EntityDraft> drafts = new ArrayList<>(persistence.drafts().values());
     drafts.sort(Comparator.comparing(d -> d.id));

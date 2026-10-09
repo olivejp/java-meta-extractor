@@ -8,11 +8,9 @@ import java.util.List;
 /**
  * Collecteur des diagnostics d'une extraction. Les id sont calculés à l'assemblage final.
  *
- * <p>Codes stables : URL_UNRESOLVED, SQL_UNPARSED, DATASOURCE_AMBIGUOUS, PARENT_NOT_FOUND,
- * ENTITY_UNREFERENCED, ENTITY_NOT_FOUND, ENUM_NOT_FOUND, NAMING_STRATEGY_UNKNOWN,
- * DESTINATION_UNRESOLVED, PARSE_ERROR, KOTLIN_UNSUPPORTED, CONTROLLER_INTERFACE_NOT_FOUND,
- * ENDPOINT_DUPLICATE, CONTEXT_ROOT_UNKNOWN, PROFILE_NOT_APPLIED, NO_DEPLOYABLE_MODULE,
- * CONFIG_PARSE_ERROR, HTTP_METHOD_UNRESOLVED, TARGET_APP_UNKNOWN, APP_NAME_COLLISION.
+ * <p>Les codes sont stables ; chacun est expliqué dans {@link DiagnosticCatalog}, qu'il faut
+ * compléter pour tout nouveau code. Les exceptions internes isolées par étape sont gardées à part
+ * (hors JSON), pour afficher leur pile avec {@code --stacktrace}.
  */
 public final class Diagnostics {
 
@@ -21,6 +19,7 @@ public final class Diagnostics {
   public static final String INFO = "info";
 
   private final List<Diagnostic> items = new ArrayList<>();
+  private final List<Throwable> failures = new ArrayList<>();
 
   public void error(String code, String message, Source source) {
     add(ERROR, code, message, source);
@@ -40,5 +39,15 @@ public final class Diagnostics {
 
   public synchronized List<Diagnostic> all() {
     return List.copyOf(items);
+  }
+
+  /** Échec interne d'une étape : diagnostic {@code error} lisible, exception gardée pour sa pile. */
+  public synchronized void failure(String step, Throwable e) {
+    add(ERROR, DiagnosticCatalog.STEP_FAILED, step + " : " + Failures.describe(e), null);
+    failures.add(e);
+  }
+
+  public synchronized List<Throwable> failures() {
+    return List.copyOf(failures);
   }
 }

@@ -82,6 +82,7 @@ public final class DatasourceResolver {
   static final String CLIENT = "JdbcClient";
   static final String EMF = "EntityManagerFactory";
   static final String MYBATIS = "SqlSessionFactory";
+  static final String JDBI = "Jdbi";
   private static final String DEFAULT_EMF = "entityManagerFactory";
 
   private static final Set<String> SPRING_CONTEXT = Set.of("org.springframework.context.annotation");
@@ -290,7 +291,7 @@ public final class DatasourceResolver {
 
   private static boolean isDataFamily(String family) {
     return DATASOURCE.equals(family) || JDBC.equals(family) || NAMED.equals(family) || CLIENT.equals(family)
-        || EMF.equals(family) || MYBATIS.equals(family);
+        || EMF.equals(family) || MYBATIS.equals(family) || JDBI.equals(family);
   }
 
   /** Injection : qualificateur, sinon unique bean ou bean {@code @Primary} de la famille, sinon par nom. */
@@ -620,11 +621,22 @@ public final class DatasourceResolver {
     if (ds == null && byId.size() > 1) {
       ctx.diagnostics().warning("DATASOURCE_AMBIGUOUS", "Source de données indéterminée pour le SQL de "
           + (a.caller() != null ? a.caller() : draft.hint() == null ? "?" : draft.hint().owner())
-          + " (" + String.join(", ", byId.keySet()) + ")", a.source());
+          + jdbiReason(a, draft.hint()) + " (" + String.join(", ", byId.keySet()) + ")", a.source());
     }
     Datasource d = ds == null ? null : byId.get(ds);
     List<SqlTable> tables = withDefaultSchema(a.tables(), d == null ? null : d.defaultSchema());
     return new SqlAccess(a.id(), a.origin(), ds, a.sql(), tables, a.parsed(), a.caller(), a.source());
+  }
+
+  /** Pourquoi un SQL JDBI n'est pas rattaché : bean Jdbi nommé mais défini hors du dépôt, ou inconnu. */
+  private String jdbiReason(SqlAccess a, DatasourceHint h) {
+    if (!a.origin().equals(SqlExtractor.JDBI)) {
+      return "";
+    }
+    if (h != null && h.bean() != null && !beansByName.containsKey(h.bean())) {
+      return " : bean Jdbi « " + h.bean() + " » défini hors du dépôt";
+    }
+    return h == null || h.bean() == null ? " : aucun bean Jdbi déclaré dans le dépôt ne crée cette interface" : "";
   }
 
   private String sqlDatasource(SqlAccess a, DatasourceHint h) {
@@ -641,6 +653,15 @@ public final class DatasourceResolver {
       if (ds != null) {
         return ds;
       }
+    }
+    if (origin.equals(SqlExtractor.JDBI)) {
+      // Pas d'auto-configuration de Jdbi : seul un bean Jdbi déclaré dans le dépôt rattache le SQL. Un bean
+      // nommé mais défini ailleurs (bibliothèque) laisse la source inconnue plutôt que la DataSource principale.
+      if (h != null && h.bean() != null) {
+        return null;
+      }
+      Bean b = beans.stream().anyMatch(x -> x.family().equals(JDBI)) ? byFamily(JDBI, null) : null;
+      return b == null ? null : datasourceOf(b);
     }
     String owner = h == null ? null : h.owner();
     if (origin.equals(SqlExtractor.NAMED_NATIVE_QUERY)) {

@@ -2,6 +2,8 @@ package fr.cafat.meta.cli;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import fr.cafat.meta.extract.Diagnostics;
+import fr.cafat.meta.extract.Failures;
+import fr.cafat.meta.extract.Failures.StepFailure;
 import fr.cafat.meta.model.Diagnostic;
 import fr.cafat.meta.model.ExtractionResult;
 import fr.cafat.meta.output.CanonicalJson;
@@ -74,6 +76,18 @@ public final class Main implements Callable<Integer> {
       description = "Schémas dont toutes les tables sont des vues (défaut : ${DEFAULT-VALUE}).")
   List<String> viewSchemas;
 
+  @Option(names = "--max-warnings", paramLabel = "N", defaultValue = "5",
+      description = "Occurrences affichées par code d'avertissement dans le rapport (défaut : ${DEFAULT-VALUE}).")
+  int maxWarnings;
+
+  @Option(names = "--stacktrace", description = "Affiche la pile complète des erreurs internes.")
+  boolean stacktrace;
+
+  @SuppressWarnings("deprecation")
+  @Option(names = "--list-diagnostics", help = true,
+      description = "Liste les codes de diagnostic, avec leur origine et ce qu'il faut faire.")
+  boolean listDiagnostics;
+
   @Spec
   CommandSpec spec;
 
@@ -86,17 +100,33 @@ public final class Main implements Callable<Integer> {
   }
 
   static int execute(String... args) {
-    return new CommandLine(new Main()).execute(args);
+    return command().execute(args);
   }
 
   /** Exécution avec une sortie d'erreur fournie (tests). */
   static int execute(PrintWriter err, String... args) {
-    return new CommandLine(new Main()).setErr(err).setOut(err).execute(args);
+    return command().setErr(err).setOut(err).execute(args);
+  }
+
+  /** Une exception non rattrapée (entrée-sortie) donne un message d'une ligne, pas une pile Java. */
+  private static CommandLine command() {
+    return new CommandLine(new Main()).setExecutionExceptionHandler((e, cmd, parsed) -> {
+      cmd.getErr().println("java-meta-extractor : ÉCHEC : " + Failures.describe(e));
+      if (((Main) cmd.getCommand()).stacktrace) {
+        e.printStackTrace(cmd.getErr());
+      }
+      return EXIT_USAGE;
+    });
   }
 
   @Override
   public Integer call() throws IOException {
     PrintWriter err = spec.commandLine().getErr();
+    if (listDiagnostics) {
+      Report.catalog(spec.commandLine().getOut());
+      spec.commandLine().getOut().flush();
+      return EXIT_OK;
+    }
     List<Path> repos = repos();
     Files.createDirectories(out);
     Pipeline.Options options = new Pipeline.Options(commit, appName, List.copyOf(profiles),
@@ -107,8 +137,13 @@ public final class Main implements Callable<Integer> {
       List<Pipeline.Output> outputs;
       try {
         outputs = Pipeline.run(repo, options);
-      } catch (RuntimeException e) {
-        err.println(repo.getFileName() + " : échec de l'extraction : " + e);
+      } catch (RuntimeException | StackOverflowError e) {
+        Throwable cause = e instanceof StepFailure f ? f.getCause() : e;
+        Report.fatal(err, repo.getFileName().toString(), e instanceof StepFailure f ? f.step() : null,
+            Failures.describe(cause));
+        if (stacktrace) {
+          cause.printStackTrace(err);
+        }
         exit = Math.max(exit, EXIT_USAGE);
         continue;
       }
@@ -120,7 +155,7 @@ public final class Main implements Callable<Integer> {
           file = alt;
           written.add(file);
         }
-        exit = Math.max(exit, write(o.result(), file, err));
+        exit = Math.max(exit, write(o, file, err));
       }
     }
     err.flush();
@@ -161,7 +196,8 @@ public final class Main implements Callable<Integer> {
   }
 
   /** Valide, écrit et résume un résultat ; renvoie son code de sortie. */
-  private int write(ExtractionResult result, String file, PrintWriter err) throws IOException {
+  private int write(Pipeline.Output output, String file, PrintWriter err) throws IOException {
+    ExtractionResult result = output.result();
     JsonNode tree = CanonicalJson.toTree(result);
     List<String> errors = SchemaValidator.validate(tree);
     int code = EXIT_OK;
@@ -180,8 +216,18 @@ public final class Main implements Callable<Integer> {
     }
     err.println(summary(result, target, nErrors, nWarnings));
     if (!errors.isEmpty()) {
-      err.println("  sortie non conforme au schéma (" + errors.size() + " erreur(s)) :");
-      errors.stream().limit(MAX_SCHEMA_ERRORS).forEach(e -> err.println("    " + e));
+      err.println();
+      err.println("  ERREUR · sortie non conforme au schéma · " + errors.size() + " écart(s), fichier écrit en " + target);
+      err.println("    origine : limite ou erreur de l'extracteur (le JSON produit ne respecte pas schema/)");
+      err.println("    à faire : corriger l'extracteur ou le schéma pour les chemins cités");
+      errors.stream().limit(MAX_SCHEMA_ERRORS).forEach(e -> err.println("    - " + e));
+    }
+    Report.print(err, result.diagnostics(), target, maxWarnings);
+    if (stacktrace) {
+      output.failures().forEach(f -> f.printStackTrace(err));
+    }
+    if (!result.diagnostics().isEmpty() || !errors.isEmpty()) {
+      err.println();
     }
     return code;
   }

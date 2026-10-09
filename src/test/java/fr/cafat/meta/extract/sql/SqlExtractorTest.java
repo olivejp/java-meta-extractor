@@ -300,4 +300,53 @@ class SqlExtractorTest {
       throw new UncheckedIOException(e);
     }
   }
+
+  @Test
+  void jdbi(@TempDir Path dir) {
+    ExtractionContext ctx = TestContexts.ofSources(dir, NamingStrategy.springBoot(),
+        """
+        package fr.x.jdbi;
+        import java.util.List;
+        import org.jdbi.v3.sqlobject.statement.*;
+        public interface PersonneDao {
+          @SqlQuery("SELECT * FROM personne WHERE id = :id AND nom = :p.nom")
+          Object lire(long id);
+          @SqlBatch("INSERT INTO personne (id, nom) VALUES (:p.id, :p.nom)")
+          void ecrire(List<Object> p);
+          @SqlUpdate("DELETE FROM personne WHERE id IN (<ids>) AND cree::date < now()")
+          void supprimer(List<Long> ids);
+          @SqlScript("DROP TABLE IF EXISTS tmp_personne")
+          @SqlScript("CREATE TABLE tmp_personne (id bigint)")
+          void recreer();
+          @SqlQuery
+          List<Object> externe();
+        }
+        """,
+        """
+        package fr.x.jdbi;
+        import org.jdbi.v3.core.Jdbi;
+        import org.springframework.beans.factory.annotation.Qualifier;
+        import org.springframework.context.annotation.*;
+        @Configuration
+        public class Conf {
+          @Bean
+          public PersonneDao personneDao(@Qualifier("pgJdbi") Jdbi jdbi) { return jdbi.onDemand(PersonneDao.class); }
+        }
+        """);
+    List<SqlDraft> drafts = new SqlExtractor(ctx).extract();
+    String dao = "fr.x.jdbi.PersonneDao#";
+    assertThat(summaries(drafts)).containsExactly(
+        "jdbi " + dao + "ecrire parsed personne:write",
+        "jdbi " + dao + "lire parsed personne:read",
+        "jdbi " + dao + "recreer parsed tmp_personne:write",
+        "jdbi " + dao + "recreer parsed tmp_personne:write",
+        "jdbi " + dao + "supprimer parsed personne:write");
+    assertThat(draft(drafts, dao + "lire", "jdbi").access().sql())
+        .isEqualTo("SELECT * FROM personne WHERE id = :id AND nom = :p.nom");
+    assertThat(drafts).allSatisfy(d -> assertThat(d.hint()).isEqualTo(
+        new DatasourceHint("fr.x.jdbi.PersonneDao", "pgJdbi", null, null)));
+    assertThat(messages(ctx, "SQL_UNRESOLVED")).containsExactly(
+        "SQL JDBI hors de l'annotation @SqlQuery (fichier .sql ou gabarit lu par un localisateur JDBI) dans "
+            + dao + "externe");
+  }
 }
