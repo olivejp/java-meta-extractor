@@ -1,4 +1,0 @@
--- Export du catalogue d'une base PostgreSQL, en lecture seule, sans aucune donnée métier.
--- psql -d <base> -f export_postgresql.sql > catalogues/<base>.csv
--- information_schema ne montre que les objets sur lesquels le compte a un droit.
-\copy (select c.table_schema, c.table_name, c.table_schema as system_schema, c.table_name as system_table_name, case t.table_type when 'BASE TABLE' then 'TABLE' when 'VIEW' then 'VIEW' else t.table_type end as table_type, c.column_name, c.column_name as system_column_name, c.ordinal_position, c.data_type, coalesce(c.character_maximum_length, c.numeric_precision) as length, c.numeric_scale, c.is_nullable from information_schema.columns c join information_schema.tables t on t.table_catalog = c.table_catalog and t.table_schema = c.table_schema and t.table_name = c.table_name where c.table_schema not in ('information_schema', 'pg_catalog') and c.table_schema not like 'pg\_%' order by 1, 2, 8) to stdout with (format csv, header true)

@@ -2,6 +2,8 @@
 
 Extracteur déterministe de métadonnées pour les dépôts Java et Kotlin de la CAFAT. Il lit le code sans le compiler (Spoon en `noClasspath`, PSI Kotlin, JSqlParser) et écrit un JSON par application déployable : `out/<application>.json`.
 
+Ces JSON sont consolidés en cartographie par le projet dbt voisin `../java-consolidation`.
+
 L'outil n'effectue aucun appel réseau, n'utilise aucun LLM, ne touche à aucune base et n'écrit ni date ni valeur aléatoire. Deux exécutions sur le même commit produisent des fichiers identiques octet pour octet.
 
 ## Fonctionnement
@@ -86,7 +88,7 @@ L'extracteur ne récupère aucun dépôt : il lit des copies locales déjà extr
 
 - **Un sous-répertoire par dépôt** dans le répertoire passé à `--repos-dir`. Ne sont retenus que ceux qui contiennent à la racine un `pom.xml`, un build Gradle ou un `.git` ; fichiers et autres répertoires sont ignorés.
 - **Le code au commit à analyser**, sans modification locale : l'extracteur lit les fichiers tels qu'ils sont sur disque.
-- **Le `.git` du clone** (un clone superficiel suffit) : l'URL du remote `origin` et le commit de HEAD y sont lus sans commande git. Sans `.git`, `repository` et `commit` valent `null` dans la sortie, et la consolidation ne peut plus déduire le projet Bitbucket. Avec `--repo`, `--commit` remplace le commit lu.
+- **Le `.git` du clone** (un clone superficiel suffit) : l'URL du remote `origin` et le commit de HEAD y sont lus sans commande git. Sans `.git`, `repository` et `commit` valent `null` dans la sortie, et java-consolidation ne peut plus déduire le projet Bitbucket. Avec `--repo`, `--commit` remplace le commit lu.
 - **Uniquement des dépôts Java ou Kotlin** : un sous-répertoire avec un `.git` mais sans `pom.xml` ni build Gradle est analysé en entier comme une seule application (avertissement `NO_DEPLOYABLE_MODULE`).
 - **Le dépôt Spring Cloud Config** éventuel, extrait sur le label servi, à passer par `--config-repo` (voir « Spring Cloud Config »).
 
