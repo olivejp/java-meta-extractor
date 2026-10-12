@@ -110,6 +110,13 @@ class ConventionsCafatTest {
                 pays: /pays/%s
                 confirm: /assure/confirm
                 check: /assure/%d/check
+                inutilise: /inutilise
+            s-gen-etp:
+              service: /s-gen-etp
+              version: 6.0
+              type: adelia
+              path:
+                rechercher: /rest/etapes/rechercher
           demo.queue: QDEMO
         """);
     write("src/main/java/nc/cafat/demo/DemoApplication.java", """
@@ -194,6 +201,9 @@ class ConventionsCafatTest {
           public void verifier(Integer matricule) {
             post(String.format(URLConfig.getUrl("s-gen-ref", "check"), matricule), Map.of());
           }
+          public Object etapes() {
+            return b2bRestTemplate.getForObject(URLConfig.getUrl("s-gen-etp", "rechercher"), Object.class);
+          }
           private void post(String url, Map<String, String> params) {
             UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(url);
             URI uri = uriBuilder.build(params);
@@ -255,12 +265,36 @@ class ConventionsCafatTest {
     assertThat(ids(result.get("messaging")))
         .containsExactly("s-gen-demo:produce:queue:QDEMO@nc.cafat.demo.TaskProducer#post");
 
-    // URL construites par URLConfig ; une URL reçue en paramètre est suivie jusqu'aux appelants
+    // URL construites par URLConfig ; une URL reçue en paramètre est suivie jusqu'aux appelants ;
+    // cible lue dans nc.cafat.rest-dependency, pas dans l'hôte (passerelle) ; hôte adelia absent sans
+    // URL_UNRESOLVED
     assertThat(ids(result.get("calls"))).containsExactly(
-        "s-gen-demo:GET:s-gen-gateway:/s-gen-ref-5.0/pays/{arg1}@nc.cafat.demo.RefClient#pays",
-        "s-gen-demo:POST:s-gen-gateway:/s-gen-ref-5.0/assure/confirm@nc.cafat.demo.RefClient#confirmer",
-        "s-gen-demo:POST:s-gen-gateway:/s-gen-ref-5.0/assure/{arg1}/check@nc.cafat.demo.RefClient#verifier");
-    assertThat(result.get("calls").get(0).get("resolved_url").asText())
+        "s-gen-demo:GET:s-gen-etp:/s-gen-etp6.0/rest/etapes/rechercher@nc.cafat.demo.RefClient#etapes",
+        "s-gen-demo:GET:s-gen-ref:/s-gen-ref-5.0/pays/{arg1}@nc.cafat.demo.RefClient#pays",
+        "s-gen-demo:POST:s-gen-ref:/s-gen-ref-5.0/assure/confirm@nc.cafat.demo.RefClient#confirmer",
+        "s-gen-demo:POST:s-gen-ref:/s-gen-ref-5.0/assure/{arg1}/check@nc.cafat.demo.RefClient#verifier");
+    assertThat(result.get("calls").get(0).get("resolved_url").isNull()).isTrue();
+    assertThat(result.get("calls").get(1).get("resolved_url").asText())
         .isEqualTo("http://s-gen-gateway/s-gen-ref-5.0/pays/{arg1}");
+
+    // dépendances déclarées : hôtes par type exclus, chemins appelés ou non
+    JsonNode deps = result.get("rest_dependencies");
+    assertThat(ids(deps)).containsExactly("s-gen-demo:rest-dependency:s-gen-etp",
+        "s-gen-demo:rest-dependency:s-gen-ref");
+    JsonNode etp = deps.get(0);
+    assertThat(etp.get("target_app").asText()).isEqualTo("s-gen-etp");
+    assertThat(etp.get("type").asText()).isEqualTo("adelia");
+    assertThat(etp.get("base_path").asText()).isEqualTo("/s-gen-etp6.0");
+    assertThat(etp.get("host").isNull()).isTrue();
+    assertThat(etp.get("called").asBoolean()).isTrue();
+    JsonNode ref = deps.get(1);
+    assertThat(ref.get("host").asText()).isEqualTo("http://s-gen-gateway");
+    assertThat(ref.get("source").get("file").asText()).isEqualTo("src/main/resources/application.yml");
+    List<String> paths = new ArrayList<>();
+    ref.get("paths").forEach(p -> paths.add(p.get("name").asText() + "=" + p.get("path").asText() + "@"
+        + p.get("called").asBoolean()));
+    assertThat(paths).containsExactly("check=/s-gen-ref-5.0/assure/{arg1}/check@true",
+        "confirm=/s-gen-ref-5.0/assure/confirm@true", "inutilise=/s-gen-ref-5.0/inutilise@false",
+        "pays=/s-gen-ref-5.0/pays/{arg1}@true");
   }
 }

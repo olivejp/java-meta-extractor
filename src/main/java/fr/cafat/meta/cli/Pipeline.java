@@ -12,6 +12,7 @@ import fr.cafat.meta.extract.Failures.StepFailure;
 import fr.cafat.meta.extract.ExtractionContext;
 import fr.cafat.meta.extract.PersistenceExtractor;
 import fr.cafat.meta.extract.calls.CallExtractor;
+import fr.cafat.meta.extract.calls.RestDependencyExtractor;
 import fr.cafat.meta.extract.entities.EntityDraft;
 import fr.cafat.meta.extract.entities.NamingStrategy;
 import fr.cafat.meta.extract.jms.JmsExtractor;
@@ -25,6 +26,7 @@ import fr.cafat.meta.model.Endpoint;
 import fr.cafat.meta.model.Entity;
 import fr.cafat.meta.model.ExtractionResult;
 import fr.cafat.meta.model.Messaging;
+import fr.cafat.meta.model.RestDependency;
 import fr.cafat.meta.model.SqlAccess;
 import fr.cafat.meta.output.Assembler;
 import fr.cafat.meta.parse.SpoonLoader;
@@ -283,6 +285,8 @@ public final class Pipeline {
     List<Endpoint> endpoints = isolated(diags, "endpoints REST exposés", () -> new EndpointExtractor(ctx).extract(),
         List::of);
     List<Call> calls = isolated(diags, "appels REST sortants", () -> new CallExtractor(ctx).extract(), List::of);
+    List<RestDependency> restDependencies = isolated(diags, "dépendances REST déclarées",
+        () -> new RestDependencyExtractor(ctx).extract(calls), List::of);
     List<Messaging> messaging = isolated(diags, "échanges JMS", () -> new JmsExtractor(ctx).extract(), List::of);
 
     List<EntityDraft> drafts = new ArrayList<>(persistence.drafts().values());
@@ -298,7 +302,7 @@ public final class Pipeline {
         repository, commit, main.relativeDir().isEmpty() ? null : main.relativeDir(), options.profiles(),
         contextPath(webModules), List.copyOf(datasources.values()));
     return Assembler.assemble(app, entities, resolved.relations(), resolved.sqlAccesses(), endpoints, calls,
-        messaging, diags.all());
+        restDependencies, messaging, diags.all());
   }
 
   private static boolean isSpringBoot(DeployableUnit unit, TypeIndex index) {

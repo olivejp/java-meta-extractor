@@ -28,7 +28,7 @@ class AssemblerTest {
 
   private static ExtractionResult assemble(List<Entity> entities, List<Relation> relations, List<SqlAccess> sql,
       List<Endpoint> endpoints, List<Call> calls, List<Messaging> messaging, List<Diagnostic> diagnostics) {
-    return Assembler.assemble(APP, entities, relations, sql, endpoints, calls, messaging, diagnostics);
+    return Assembler.assemble(APP, entities, relations, sql, endpoints, calls, List.of(), messaging, diagnostics);
   }
 
   private static ExtractionResult withDiagnostics(Diagnostic... diagnostics) {

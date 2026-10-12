@@ -171,6 +171,7 @@ Le fichier est encodé en UTF-8, avec les clés triées, les tableaux triés par
 | `sql_accesses` | `app:sql:<sha1 du SQL>@Classe#méthode` |
 | `endpoints` | `app:VERBE:/chemin/{var}` |
 | `calls` | `app:VERBE:<app cible ou ?>:<chemin>@Classe#méthode` |
+| `rest_dependencies` | `app:rest-dependency:<nom>` |
 | `messaging` | `app:produce\|consume:queue\|topic\|?:<destination>@Classe#méthode` |
 | `diagnostics` | `app:CODE:<12 premiers caractères du sha1 du contenu>` |
 
@@ -196,7 +197,7 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
 | `SQL_UNPARSED` | warning | SQL dynamique ou rejeté par JSqlParser. Les tables sont lues par repli lexical. |
 | `SQL_UNRESOLVED` | warning | Texte SQL introuvable (paramètre, valeur calculée). |
 | `ENDPOINT_PATH_UNRESOLVED`, `HTTP_METHOD_UNRESOLVED` | warning | Chemin ou verbe non constant. |
-| `URL_UNRESOLVED` | warning | URL d'appel avec une propriété absente de la configuration. |
+| `URL_UNRESOLVED` | warning | URL d'appel avec une propriété absente de la configuration (hors hôte d'une dépendance `nc.cafat.rest-dependency`). |
 | `DESTINATION_UNRESOLVED` | warning | Destination JMS non constante ou absente. |
 | `XML_UNREADABLE` | warning | Fichier XML (MyBatis, web.xml…) illisible. |
 | `ENTITY_UNREFERENCED` | info | Entité jamais nommée ailleurs dans le code (classe gardée dans la sortie). |
@@ -236,6 +237,24 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
   - les méthodes du dépôt sont dépliées avec leurs arguments, y compris les clés calculées de `Environment.getProperty` (`PREFIXE + service + ".path." + nom`) ;
   - un format lu dans la configuration puis passé à `String.format` garde ses `%s`/`%d`, qui deviennent `{arg1}`, `{arg2}`… après résolution ;
   - une URL reçue en paramètre est évaluée à chaque site d'appel de la méthode : un appel par site, attribué à l'appelant.
+- **Dépendances REST déclarées** (convention CAFAT) :
+
+  ```yaml
+  nc.cafat.rest-dependency:
+    springboot.host: https://api…   # hôte par type de cible, propre à l'environnement
+    s-gen-geo:
+      service: /s-gen-geo-
+      version: 5.0
+      type: springboot              # springboot, jboss, adelia…
+      path:
+        pays: /pays/%s
+  ```
+
+  - l'URL d'appel vaut `<type>.host + service + version + path.<clé>` ;
+  - chaque dépendance est exportée dans `rest_dependencies` : `target_app`, `type`, `base_path` (`service + version`), `host` et ses chemins (`template` tel qu'écrit, `path` complet comparable aux endpoints) ;
+  - l'application cible est le dernier segment de `service` sans `/` ni `-` de bord (`/s-gen-geo-` → `s-gen-geo`), sinon le nom de la dépendance. Elle est reprise dans `target_app` de chaque appel qui cite la dépendance, à la place de l'hôte (la passerelle) ;
+  - un hôte absent ne donne pas `URL_UNRESOLVED` : `resolved_url` reste `null`, le chemin et la cible sont connus ;
+  - `called` (dépendance ou chemin) vaut `true` si l'URL brute d'un appel cite la clé ; une entrée sans `service` ni `path` (`springboot.host`) n'est pas une dépendance.
 - **Schéma par défaut** : celui de la source de données (`currentSchema` PostgreSQL, première bibliothèque DB2 `libraries=`, `hibernate.default_schema`). Il s'applique aux tables sans schéma : entités, tables secondaires, tables de jointure et SQL.
 - **`is_view`** vaut `true` dans trois cas :
   - schéma de vues (`--view-schemas`) ;
@@ -297,7 +316,8 @@ La suite comprend :
 - **Endpoints et appels** :
   - le `contextRoot` d'un EAR n'est lu que dans `application.xml` et `jboss-web.xml` ;
   - les appels JAX-RS en `.target()` dynamique restent partiels ;
-  - l'application cible n'est déduite que de l'hôte : un appel via une passerelle d'API garde `?` ;
+  - hors convention `nc.cafat.rest-dependency`, l'application cible n'est déduite que de l'hôte : un appel via une passerelle d'API garde `?` ;
+  - `called: false` sur un chemin déclaré ne prouve pas qu'il est inutilisé : un nom de chemin calculé (`"desserte-" + type`) ne se rattache à aucune clé ;
   - une valeur sensible par son nom de clé reste masquée même dans une URL (`path.check-password` → `***`).
 - **JMS** : les destinations déclarées dans un XML Spring et les annotations JMS au niveau de la classe ne sont pas lues.
 - **Spring Cloud Config** : seul le backend git est lu, depuis un clone local ; pas de backend Vault, JDBC ou natif, ni d'appel au serveur. Un `{label}` dans les `search-paths` n'est pas remplacé.

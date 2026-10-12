@@ -47,9 +47,10 @@ import spoon.reflect.visitor.filter.TypeFilter;
  * {@code RestClient} et client JAX-RS.
  *
  * <p>L'URL brute est celle du code (placeholders {@code ${...}} gardés, valeurs inconnues en
- * {@code {nom}}) ; elle est résolue avec la configuration du profil. Application cible déduite de
- * l'hôte (nom court, ou premier label d'un hôte {@code .svc[.cluster.local]}) ; Feign sans
- * {@code url} : nom du client (découverte de services).
+ * {@code {nom}}) ; elle est résolue avec la configuration du profil. Application cible : celle de la
+ * dépendance citée ({@code nc.cafat.rest-dependency.<nom>}, voir {@link RestDependencyExtractor}),
+ * sinon déduite de l'hôte (nom court, ou premier label d'un hôte {@code .svc[.cluster.local]}) ;
+ * Feign sans {@code url} : nom du client (découverte de services).
  */
 public final class CallExtractor {
 
@@ -468,11 +469,15 @@ public final class CallExtractor {
     String host = host(value);
     String resolved = r.complete() && host != null ? value : null;
     String path = path(resolved != null ? resolved : value);
-    String target = null;
+    // Convention nc.cafat.rest-dependency : la cible est dans la clé, l'hôte (passerelle) n'y ajoute rien.
+    String dependency = RestDependencyExtractor.referenced(cleanRaw);
+    String target = dependency == null ? null : RestDependencyExtractor.targetApp(ctx.config(), dependency);
     if (resolved == null) {
-      ctx.diagnostics().warning("URL_UNRESOLVED", "URL non résolue : " + cleanRaw
-          + (r.missing().isEmpty() ? "" : " (inconnu : " + String.join(", ", r.missing()) + ")"), source);
-    } else {
+      if (target == null || !RestDependencyExtractor.onlyHostsMissing(r.missing())) {
+        ctx.diagnostics().warning("URL_UNRESOLVED", "URL non résolue : " + cleanRaw
+            + (r.missing().isEmpty() ? "" : " (inconnu : " + String.join(", ", r.missing()) + ")"), source);
+      }
+    } else if (target == null) {
       target = targetApp(host);
       if (target == null) {
         ctx.diagnostics().info("TARGET_APP_UNKNOWN", "application cible non déduite de l'hôte " + host, source);

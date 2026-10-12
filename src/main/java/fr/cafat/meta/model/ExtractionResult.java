@@ -12,8 +12,9 @@ public record ExtractionResult(
     @JsonProperty("sql_accesses") List<SqlAccess> sqlAccesses,
     @JsonProperty("endpoints") List<Endpoint> endpoints,
     @JsonProperty("calls") List<Call> calls,
+    @JsonProperty("rest_dependencies") List<RestDependency> restDependencies,
     @JsonProperty("messaging") List<Messaging> messaging,
     @JsonProperty("diagnostics") List<Diagnostic> diagnostics) {
 
-  public static final String CONTRACT_VERSION = "1.1";
+  public static final String CONTRACT_VERSION = "1.2";
 }

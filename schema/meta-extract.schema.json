@@ -5,15 +5,16 @@
   "description": "Contrat 1.0 de java-meta-extractor. Toute propriété est présente ; une valeur inconnue vaut null.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contract_version", "application", "entities", "relations", "sql_accesses", "endpoints", "calls", "messaging", "diagnostics"],
+  "required": ["contract_version", "application", "entities", "relations", "sql_accesses", "endpoints", "calls", "rest_dependencies", "messaging", "diagnostics"],
   "properties": {
-    "contract_version": { "const": "1.1" },
+    "contract_version": { "const": "1.2" },
     "application": { "$ref": "#/$defs/application" },
     "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
     "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
     "sql_accesses": { "type": "array", "items": { "$ref": "#/$defs/sql_access" } },
     "endpoints": { "type": "array", "items": { "$ref": "#/$defs/endpoint" } },
     "calls": { "type": "array", "items": { "$ref": "#/$defs/call" } },
+    "rest_dependencies": { "type": "array", "items": { "$ref": "#/$defs/rest_dependency" } },
     "messaging": { "type": "array", "items": { "$ref": "#/$defs/messaging" } },
     "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
   },
@@ -238,6 +239,39 @@
         "path": { "$ref": "#/$defs/nullable_string" },
         "target_app": { "$ref": "#/$defs/nullable_string" },
         "caller": { "$ref": "#/$defs/nullable_string" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "rest_dependency_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "template", "path", "called", "source"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "template": { "$ref": "#/$defs/nullable_string" },
+        "path": { "$ref": "#/$defs/nullable_string" },
+        "called": { "type": "boolean" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+
+    "rest_dependency": {
+      "description": "Dépendance déclarée sous nc.cafat.rest-dependency.<name> (convention CAFAT).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "target_app", "type", "service", "version", "base_path", "host", "called", "paths", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "target_app": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/nullable_string" },
+        "service": { "$ref": "#/$defs/nullable_string" },
+        "version": { "$ref": "#/$defs/nullable_string" },
+        "base_path": { "$ref": "#/$defs/nullable_string" },
+        "host": { "$ref": "#/$defs/nullable_string" },
+        "called": { "type": "boolean" },
+        "paths": { "type": "array", "items": { "$ref": "#/$defs/rest_dependency_path" } },
         "source": { "$ref": "#/$defs/source" }
       }
     },

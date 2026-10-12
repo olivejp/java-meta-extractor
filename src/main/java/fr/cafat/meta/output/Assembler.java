@@ -10,6 +10,8 @@ import fr.cafat.meta.model.Entity;
 import fr.cafat.meta.model.ExtractionResult;
 import fr.cafat.meta.model.Messaging;
 import fr.cafat.meta.model.Relation;
+import fr.cafat.meta.model.RestDependency;
+import fr.cafat.meta.model.RestDependencyPath;
 import fr.cafat.meta.model.SecondaryTable;
 import fr.cafat.meta.model.Source;
 import fr.cafat.meta.model.SqlAccess;
@@ -46,6 +48,7 @@ public final class Assembler {
    * @param sql accès SQL ; tables dédoublonnées et triées ici
    * @param endpoints endpoints exposés
    * @param calls appels sortants
+   * @param restDependencies dépendances REST déclarées ; chemins triés ici
    * @param messaging échanges JMS
    * @param diagnostics diagnostics, id à null
    * @return résultat conforme au contrat, tableaux triés par id ; les collisions d'id reçoivent
@@ -53,7 +56,7 @@ public final class Assembler {
    */
   public static ExtractionResult assemble(Application app, List<Entity> entities,
       List<Relation> relations, List<SqlAccess> sql, List<Endpoint> endpoints, List<Call> calls,
-      List<Messaging> messaging, List<Diagnostic> diagnostics) {
+      List<RestDependency> restDependencies, List<Messaging> messaging, List<Diagnostic> diagnostics) {
     String appId = app.id();
     Application sortedApp = new Application(app.id(), app.name(), app.version(),
         List.copyOf(new TreeSet<>(app.tech())), app.repository(), app.commit(), app.module(),
@@ -76,6 +79,12 @@ public final class Assembler {
           s.parsed(), s.caller(), s.source()));
     }
 
+    List<RestDependency> deps = new ArrayList<>();
+    for (RestDependency d : restDependencies) {
+      deps.add(new RestDependency(d.id(), d.name(), d.targetApp(), d.type(), d.service(), d.version(), d.basePath(),
+          d.host(), d.called(), sorted(d.paths(), Comparator.comparing(RestDependencyPath::name)), d.source()));
+    }
+
     List<Diagnostic> diags = new ArrayList<>();
     for (Diagnostic d : diagnostics) {
       Source src = d.source();
@@ -90,6 +99,7 @@ public final class Assembler {
         finish(sqls, SqlAccess::id, SqlAccess::withId, SqlAccess::source),
         finish(endpoints, Endpoint::id, Endpoint::withId, Endpoint::source),
         finish(calls, Call::id, Call::withId, Call::source),
+        finish(deps, RestDependency::id, null, RestDependency::source),
         finish(messaging, Messaging::id, Messaging::withId, Messaging::source),
         finish(diags, Diagnostic::id, Diagnostic::withId, Diagnostic::source));
   }
