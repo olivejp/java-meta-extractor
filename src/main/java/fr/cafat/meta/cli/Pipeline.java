@@ -20,6 +20,7 @@ import fr.cafat.meta.extract.rest.EndpointExtractor;
 import fr.cafat.meta.extract.sql.SqlExtractor;
 import fr.cafat.meta.model.Application;
 import fr.cafat.meta.model.Call;
+import fr.cafat.meta.model.CloudConfig;
 import fr.cafat.meta.model.Datasource;
 import fr.cafat.meta.model.Diagnostic;
 import fr.cafat.meta.model.Endpoint;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import spoon.reflect.CtModel;
 import spoon.reflect.declaration.CtType;
 
@@ -79,18 +81,20 @@ public final class Pipeline {
   /**
    * @param commit commit à inscrire ; null : lu dans {@code .git} sans appel réseau
    * @param appName nom imposé (dépôt à une seule unité déployable), sinon null
-   * @param profiles profils Spring actifs, dans l'ordre
+   * @param profiles profils Spring demandés, dans l'ordre ; vide : profils déclarés par chaque application
    * @param viewSchemas schémas dont toutes les tables sont des vues
    * @param kotlin traduction Kotlin ; null : fichiers .kt ignorés ({@code KOTLIN_SKIPPED})
    * @param cloudConfig dépôt Spring Cloud Config appliqué aux applications clientes ; null : aucun
+   * @param environment environnement ciblé (inscrit dans la sortie, comparé à la branche du dépôt de
+   *     configuration) ; null : non précisé
    */
   public record Options(String commit, String appName, List<String> profiles, Set<String> viewSchemas,
-      KotlinFactory kotlin, CloudConfigRepo cloudConfig) {
+      KotlinFactory kotlin, CloudConfigRepo cloudConfig, String environment) {
 
-    /** Options sans dépôt Spring Cloud Config. */
+    /** Options sans dépôt Spring Cloud Config ni environnement. */
     public Options(String commit, String appName, List<String> profiles, Set<String> viewSchemas,
         KotlinFactory kotlin) {
-      this(commit, appName, profiles, viewSchemas, kotlin, null);
+      this(commit, appName, profiles, viewSchemas, kotlin, null, null);
     }
   }
 
@@ -103,6 +107,8 @@ public final class Pipeline {
 
   private static final Set<String> SPRING_BOOT = Set.of("org.springframework.boot.autoconfigure");
   private static final Set<String> EJB = Set.of("javax.ejb", "jakarta.ejb");
+  /** Suffixe de version d'un {@code spring.application.name} ({@code s-gen-geo-5.0}). */
+  private static final Pattern VERSION_SUFFIX = Pattern.compile("^(.+?)-\\d+(?:\\.\\d+)+$");
 
   private Pipeline() {
   }
@@ -173,8 +179,9 @@ public final class Pipeline {
   }
 
   /** Fichiers et configuration d'une unité, avant l'analyse du code. */
-  private record Prepared(DeployableUnit unit, Config config, List<PersistenceUnit> persistenceUnits,
-      List<Path> java, List<Path> kotlin, List<Path> resources, Diagnostics diagnostics) {
+  private record Prepared(DeployableUnit unit, Config config, List<String> profiles, CloudConfig cloud,
+      List<PersistenceUnit> persistenceUnits, List<Path> java, List<Path> kotlin, List<Path> resources,
+      Diagnostics diagnostics) {
   }
 
   private static Prepared prepare(RepoScanner scanner, DeployableUnit unit, Options options) {
@@ -186,9 +193,10 @@ public final class Pipeline {
       scanner.files(ms, ".yml", ".yaml", ".properties").stream()
           .filter(ConfigLoader::isConfigFile).forEach(configFiles::add);
     }
-    Config config = new ConfigLoader(diags, scanner::relative,
-        (f, text) -> scanner.moduleOf(f).filtering().apply(f, text)).load(configFiles, options.profiles());
-    cloudConfig(scanner, unit, config, options, diags);
+    ConfigLoader.Loaded loaded = new ConfigLoader(diags, scanner::relative,
+        (f, text) -> scanner.moduleOf(f).filtering().apply(f, text)).loadEffective(configFiles, options.profiles());
+    Config config = loaded.config();
+    CloudConfig cloud = cloudConfig(scanner, unit, config, loaded.profiles(), options, diags);
     List<Path> resources = scanner.files(unit.modules(), ".xml");
     List<PersistenceUnit> pus = new ArrayList<>();
     for (Path f : resources) {
@@ -196,16 +204,18 @@ public final class Pipeline {
         pus.addAll(PersistenceXmlReader.read(f, scanner.relative(f), scanner.moduleOf(f).dir(), diags));
       }
     }
-    return new Prepared(unit, config, pus, scanner.files(unit.modules(), ".java"),
+    return new Prepared(unit, config, loaded.profiles(), cloud, pus, scanner.files(unit.modules(), ".java"),
         scanner.files(unit.modules(), ".kt"), resources, diags);
   }
 
   /**
    * Configuration distante d'une application cliente de Spring Cloud Config, par-dessus sa
-   * configuration locale. Sans {@code --config-repo} : diagnostic {@code CLOUD_CONFIG_NOT_PROVIDED}.
+   * configuration locale, avec les profils actifs de l'application. Sans {@code --config-repo} :
+   * {@code CLOUD_CONFIG_NOT_PROVIDED} ; branche du dépôt différente de l'environnement ciblé :
+   * {@code CLOUD_CONFIG_LABEL_MISMATCH}.
    */
-  private static void cloudConfig(RepoScanner scanner, DeployableUnit unit, Config config, Options options,
-      Diagnostics diags) {
+  private static CloudConfig cloudConfig(RepoScanner scanner, DeployableUnit unit, Config config,
+      List<String> profiles, Options options, Diagnostics diags) {
     List<String> builds = new ArrayList<>();
     for (Module m : scanner.modules()) {
       boolean inUnit = unit.modules().contains(m) || unit.main().dir().normalize().startsWith(m.dir().normalize());
@@ -218,20 +228,28 @@ public final class Pipeline {
       }
     }
     if (!CloudConfigRepo.isClient(config, builds)) {
-      return;
+      return CloudConfig.notClient();
     }
     List<String> names = CloudConfigRepo.names(config, unit.main().artifactId());
-    if (options.cloudConfig() == null) {
+    CloudConfigRepo repo = options.cloudConfig();
+    if (repo == null) {
       diags.info("CLOUD_CONFIG_NOT_PROVIDED", "client Spring Cloud Config (" + String.join(", ", names)
           + ") : configuration distante non lue, sans --config-repo", null);
-      return;
+      return new CloudConfig(true, CloudConfig.NOT_PROVIDED, names, null, List.of());
     }
-    options.cloudConfig().apply(config, names, options.profiles(), diags);
+    if (options.environment() != null && repo.label() != null && !repo.label().equals(options.environment())) {
+      diags.warning("CLOUD_CONFIG_LABEL_MISMATCH", "dépôt de configuration extrait sur la branche "
+          + repo.label() + " alors que l'environnement ciblé est " + options.environment(), null);
+    }
+    CloudConfigRepo.Applied applied = repo.apply(config, names, profiles, diags);
+    return new CloudConfig(true, applied.found() ? CloudConfig.APPLIED : CloudConfig.NOT_FOUND, names,
+        repo.label(), applied.files());
   }
 
   /**
-   * Nom de chaque unité : nom imposé (une seule unité), {@code spring.application.name}, sinon
-   * artifactId du module principal. Deux unités de même nom reçoivent le suffixe de leur artifactId.
+   * Nom de chaque unité : nom imposé (une seule unité), {@code spring.application.name} sans suffixe
+   * de version ({@code s-gen-geo-5.0} → {@code s-gen-geo}), sinon artifactId du module principal.
+   * Deux unités de même nom reçoivent le suffixe de leur artifactId.
    */
   static List<String> names(List<Prepared> prepared, String forced) {
     List<String> names = new ArrayList<>();
@@ -239,7 +257,7 @@ public final class Pipeline {
       String name = prepared.size() == 1 && forced != null ? forced : null;
       if (name == null) {
         String spring = p.config().resolve(p.config().get("spring.application.name")).value();
-        name = spring != null && !spring.isBlank() && !spring.contains("${") ? spring.strip()
+        name = spring != null && !spring.isBlank() && !spring.contains("${") ? withoutVersion(spring.strip())
             : p.unit().main().artifactId();
       }
       names.add(name);
@@ -253,6 +271,12 @@ public final class Pipeline {
       }
     }
     return names;
+  }
+
+  /** Nom sans suffixe de version ({@code s-gen-geo-5.0} → {@code s-gen-geo}) ; inchangé sinon. */
+  static String withoutVersion(String name) {
+    java.util.regex.Matcher m = VERSION_SUFFIX.matcher(name);
+    return m.matches() ? m.group(1) : name;
   }
 
   private static ExtractionResult extract(RepoScanner scanner, Prepared p, String appId, String repository,
@@ -299,8 +323,8 @@ public final class Pipeline {
     String version = main.version() == null || main.version().contains("${") ? null : main.version();
     Application app = new Application(appId, appId, version,
         tech(p, index, springBoot, entities, resolved.sqlAccesses(), endpoints, messaging),
-        repository, commit, main.relativeDir().isEmpty() ? null : main.relativeDir(), options.profiles(),
-        contextPath(webModules), List.copyOf(datasources.values()));
+        repository, commit, main.relativeDir().isEmpty() ? null : main.relativeDir(), p.profiles(),
+        contextPath(webModules), options.environment(), p.cloud(), List.copyOf(datasources.values()));
     return Assembler.assemble(app, entities, resolved.relations(), resolved.sqlAccesses(), endpoints, calls,
         restDependencies, messaging, diags.all());
   }

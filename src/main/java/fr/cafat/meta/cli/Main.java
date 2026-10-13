@@ -80,6 +80,11 @@ public final class Main implements Callable<Integer> {
           + "{application}, {profile} et * acceptés). Défaut : racine seule.")
   List<String> configSearchPaths = new ArrayList<>();
 
+  @Option(names = "--environment", paramLabel = "ENV",
+      description = "Environnement ciblé (ex. dev, val), inscrit dans la sortie et comparé à la branche "
+          + "extraite de --config-repo.")
+  String environment;
+
   @Option(names = "--fail-on-warning", description = "Code 1 aussi en présence d'un diagnostic warning.")
   boolean failOnWarning;
 
@@ -150,7 +155,8 @@ public final class Main implements Callable<Integer> {
     }
     CloudConfigRepo cloudConfig = configRepo == null ? null : new CloudConfigRepo(configRepo, configSearchPaths);
     Pipeline.Options options = new Pipeline.Options(commit, appName, List.copyOf(profiles),
-        Set.copyOf(viewSchemas), KOTLIN, cloudConfig);
+        Set.copyOf(viewSchemas), KOTLIN, cloudConfig, environment == null || environment.isBlank() ? null
+        : environment.strip());
     int exit = EXIT_OK;
     Set<String> written = new HashSet<>();
     for (Path repo : repos) {

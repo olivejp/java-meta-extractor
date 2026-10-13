@@ -64,9 +64,10 @@ docker run --rm --network none -v /chemin/vers/s-gen-gpp:/repo:ro -v "$PWD/out:/
 | `--commit SHA` | Commit inscrit dans la sortie. Par défaut, HEAD est lu dans `.git`, sans commande git. Uniquement avec `--repo`. |
 | `--out DIR` | Répertoire de sortie, créé au besoin. |
 | `--app-name NOM` | Nom imposé, si le dépôt n'a qu'une seule unité déployable. Uniquement avec `--repo`. |
-| `--profile P[,P…]` | Profils Spring actifs, dans l'ordre. |
+| `--profile P[,P…]` | Profils Spring actifs, dans l'ordre, imposés à toutes les applications. Sans cette option : profils déclarés par chaque application (voir « Profils »). |
 | `--config-repo DIR` | Clone local du dépôt Spring Cloud Config, appliqué aux applications clientes (voir « Spring Cloud Config »). |
 | `--config-search-paths C[,C…]` | Répertoires de recherche de ce dépôt, comme `search-paths` du serveur : `{application}`, `{profile}` et `*` acceptés. Défaut : racine seule. |
+| `--environment ENV` | Environnement ciblé (valeur libre : `dev`, `val`…). Inscrit dans `application.environment` et comparé à la branche extraite de `--config-repo`. |
 | `--fail-on-warning` | Un diagnostic `warning` donne aussi le code 1. |
 | `--view-schemas S[,S…]` | Schémas dont toutes les tables sont des vues. Défaut : `MGENGPP`. |
 | `--max-warnings N` | Occurrences affichées par code d'avertissement dans le rapport. Défaut : 5. |
@@ -119,21 +120,39 @@ Toutes les erreurs sont listées, 5 occurrences par code d'avertissement (`--max
 
 ## Spring Cloud Config
 
-Les URL, sources de données et files définies dans un serveur Spring Cloud Config sont lues dans un clone local de son dépôt git, extrait sur la branche (label) servie :
+Le parc est mixte : certaines applications gardent leur configuration dans leur dépôt, d'autres sont passées sous Spring Cloud Config. Une seule exécution traite les deux cas : `--config-repo` n'est appliqué qu'aux applications clientes du serveur, les autres gardent leur configuration locale.
+
+À la CAFAT, le dépôt de configuration a une branche par environnement (`dev`, `int`, `val`…). L'appelant l'extrait sur la branche de l'environnement ciblé et passe cet environnement :
 
 ```bash
-git clone -b master ssh://…/config-repo ~/carto/config-repo
-java -jar target/java-meta-extractor.jar --repos-dir ~/carto/depots --out out/ --profile prod \
-  --config-repo ~/carto/config-repo --config-search-paths '{application}'
+git clone --depth 1 -b dev ssh://…/spring-cloud-config-repo ~/carto/config-repo
+java -jar target/java-meta-extractor.jar --repos-dir ~/carto/depots --out out/ \
+  --config-repo ~/carto/config-repo --environment dev
 ```
 
-- **Applications concernées** : celles dont un build déclare `spring-cloud-starter-config` ou `spring-cloud-config-client`, ou dont la configuration déclare `spring.cloud.config.uri` ou `spring.config.import=configserver:…`. `spring.cloud.config.enabled=false` les exclut.
-- **Nom demandé au serveur** : `spring.cloud.config.name` (liste possible), sinon `spring.application.name`, sinon l'`artifactId`.
-- **Fichiers lus**, du moins au plus prioritaire : `application.*`, `{nom}.*`, puis pour chaque profil `application-{profil}.*`, `{nom}-{profil}.*`. Sans `--profile` : profil `default`. Dans chaque niveau : racine, puis `--config-search-paths` dans l'ordre ; `.properties` l'emporte sur `.yml`. Les documents YAML conditionnés par profil sont pris en compte.
+- **Applications concernées** : celles dont un build déclare `spring-cloud-starter-config` ou `spring-cloud-config-client`, ou dont la configuration déclare `spring.cloud.config.uri` ou `spring.config.import=configserver:…`. `spring.cloud.config.enabled=false` les exclut. La détection porte sur le code analysé : une application dont seule une branche de travail est migrée reste classique sur `master`.
+- **Nom demandé au serveur** : `spring.cloud.config.name` (liste possible), sinon `spring.application.name` (ex. `s-gen-geo-5.0`), sinon l'`artifactId`.
+- **Profils** : ceux de l'application (voir « Profils »), par exemple `application-modules` et les profils fonctionnels de son groupe (`rest-dependency`, `datasource-as400`…).
+- **Fichiers lus**, du moins au plus prioritaire : `application.*`, `{nom}.*`, puis pour chaque profil `application-{profil}.*`, `{nom}-{profil}.*`. Sans profil : profil `default`. Dans chaque niveau : racine, puis `--config-search-paths` dans l'ordre ; `.properties` l'emporte sur `.yml`. Les documents YAML conditionnés par profil sont pris en compte.
 - **Priorité** : la configuration distante remplace la configuration locale, clé par clé, comme le client Spring.
+- **Branche** : lue dans `.git/HEAD` du clone, sans commande git. Si elle diffère de `--environment` : `CLOUD_CONFIG_LABEL_MISMATCH`.
 - **Valeurs `{cipher}…`** : déchiffrées par le serveur seulement, donc masquées (`***`).
 - **Provenance** : `cloud-config:<chemin dans le dépôt de configuration>`.
-- Les `search-paths` se lisent dans la configuration du serveur Config (`spring.cloud.config.server.git.search-paths`).
+- **Sortie** : `application.cloud_config` dit si l'application est cliente (`client`) et ce qui a été lu :
+
+  | `status` | Signification |
+  |---|---|
+  | `not_client` | Configuration locale seule. |
+  | `not_provided` | Cliente, lancée sans `--config-repo` (`CLOUD_CONFIG_NOT_PROVIDED`). |
+  | `not_found` | Cliente, aucun fichier `{nom}*` dans le dépôt : seuls les fichiers communs sont appliqués (`CLOUD_CONFIG_NOT_FOUND`). |
+  | `applied` | Configuration distante appliquée. |
+
+  `names` donne les noms demandés, `label` la branche lue et `files` les fichiers appliqués, dans l'ordre.
+- Les `search-paths` se lisent dans la configuration du serveur Config (`spring.cloud.config.server.git.search-paths`). Le dépôt CAFAT range tout à la racine : l'option est inutile.
+
+### Profils
+
+Avec `--profile`, les profils donnés s'appliquent à toutes les applications. Sans `--profile`, chaque application reçoit ceux qu'elle déclare dans sa configuration de base, comme Spring au démarrage : `spring.profiles.include`, puis `spring.profiles.active`, chaque profil suivi des membres de son groupe (`spring.profiles.group.<profil>`, dépliés récursivement). `application.profiles` donne les profils appliqués. Sans profil demandé ni déclaré, alors que des profils existent : `PROFILE_NOT_APPLIED`.
 
 ## Unités déployables
 
@@ -149,14 +168,14 @@ Chaque unité est analysée sur son module et ses dépendances internes, avec sa
 Le nom de l'application est, dans l'ordre :
 
 1. `--app-name` ;
-2. `spring.application.name` ;
+2. `spring.application.name`, sans son suffixe de version (`s-gen-geo-5.0` → `s-gen-geo`), pour qu'une application ait le même nom avant et après son passage sous Spring Cloud Config, et que `target_app` des appels la désigne ;
 3. l'`artifactId` du module principal, ou le nom du projet Gradle.
 
 Deux unités qui portent le même nom reçoivent le suffixe `-<artifactId>`.
 
 Le code sous `src/test` (et `src/<autre que main>`) n'est jamais lu.
 
-Les fichiers `application*`/`bootstrap*` sont lus tels que Maven les place dans le jar : les ressources filtrées (`<filtering>true</filtering>`, ou les `application*` sous `spring-boot-starter-parent`) voient leurs jetons remplacés par les propriétés du pom, `project.*` (aussi sans préfixe : `@artifactId@`) et `parsedVersion.*` si `build-helper:parse-version` est déclaré. Sous le parent Spring Boot, seul `@cle@` est filtré ; sinon `${cle}` l'est aussi. Un jeton inconnu reste tel quel, comme dans Maven. `basedir` et les chemins absolus ne sont jamais substitués.
+Les fichiers `application*`/`bootstrap*` sont lus tels que Maven les place dans le jar : les ressources filtrées (`<filtering>true</filtering>`, ou les `application*` sous `spring-boot-starter-parent`) voient leurs jetons remplacés par les propriétés du pom, `project.*` (aussi sans préfixe : `@artifactId@`) et `parsedVersion.*` si `build-helper:parse-version` est déclaré. Sous le parent Spring Boot, seul `@cle@` est filtré ; sinon `${cle}` l'est aussi. Un jeton inconnu reste tel quel, comme dans Maven. `basedir` et les chemins absolus ne sont jamais substitués. Un jeton inconnu en début de valeur YAML (`description: @description@`, valeur héritée d'un parent hors du dépôt) rend le YAML invalide : le fichier est alors relu avec ces valeurs entre guillemets, la clé gardant le jeton comme valeur.
 
 ## Contrat JSON
 
@@ -202,9 +221,10 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
 | `XML_UNREADABLE` | warning | Fichier XML (MyBatis, web.xml…) illisible. |
 | `ENTITY_UNREFERENCED` | info | Entité jamais nommée ailleurs dans le code (classe gardée dans la sortie). |
 | `TARGET_APP_UNKNOWN` | info | Application cible d'un appel non déduite de l'hôte. |
-| `PROFILE_NOT_APPLIED` | info | Profils disponibles mais aucun demandé. |
+| `PROFILE_NOT_APPLIED` | info | Profils disponibles mais aucun demandé (`--profile`) ni déclaré par l'application. |
 | `CLOUD_CONFIG_NOT_PROVIDED` | info | Application cliente de Spring Cloud Config, lancée sans `--config-repo`. |
 | `CLOUD_CONFIG_NOT_FOUND` | info | Aucun fichier `{nom}*` dans le dépôt de configuration : seuls les fichiers communs sont appliqués. |
+| `CLOUD_CONFIG_LABEL_MISMATCH` | warning | Dépôt de configuration extrait sur une autre branche que `--environment`. |
 | `SUBRESOURCE_LOCATOR_IGNORED` | info | Localisateur de sous-ressource JAX-RS non suivi. |
 | `KOTLIN_SKIPPED` | warning | Fichiers Kotlin présents mais traduction désactivée. |
 | `EXTRACTION_STEP_FAILED` | error | Exception interne dans une étape de l'extraction, isolée (voir « Lire les erreurs »). |
@@ -237,24 +257,35 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
   - les méthodes du dépôt sont dépliées avec leurs arguments, y compris les clés calculées de `Environment.getProperty` (`PREFIXE + service + ".path." + nom`) ;
   - un format lu dans la configuration puis passé à `String.format` garde ses `%s`/`%d`, qui deviennent `{arg1}`, `{arg2}`… après résolution ;
   - une URL reçue en paramètre est évaluée à chaque site d'appel de la méthode : un appel par site, attribué à l'appelant.
-- **Dépendances REST déclarées** (convention CAFAT) :
+- **Dépendances REST déclarées** (convention CAFAT), sous deux formes :
 
   ```yaml
-  nc.cafat.rest-dependency:
-    springboot.host: https://api…   # hôte par type de cible, propre à l'environnement
+  nc.cafat.rest-dependency:         # configuration locale de l'application
+    springboot.host: https://api…   # hôte par type de cible : <type>.host
     s-gen-geo:
       service: /s-gen-geo-
       version: 5.0
       type: springboot              # springboot, jboss, adelia…
       path:
         pays: /pays/%s
+
+  cafat.config.rest-dependency:     # dépôt Spring Cloud Config (profil rest-dependency)
+    host:
+      springboot: https://api…      # hôte par type de cible : host.<type>
+    s-gen-iam:
+      service: /s-gen-iam-
+      version: 5.1
+      type: springboot
+      path:
+        assure:
+          account: /assure/account  # chemin imbriqué : clé assure.account
   ```
 
-  - l'URL d'appel vaut `<type>.host + service + version + path.<clé>` ;
-  - chaque dépendance est exportée dans `rest_dependencies` : `target_app`, `type`, `base_path` (`service + version`), `host` et ses chemins (`template` tel qu'écrit, `path` complet comparable aux endpoints) ;
+  - l'URL d'appel vaut `hôte(type) + service + version + path.<clé>` ;
+  - chaque dépendance est exportée dans `rest_dependencies` : `config_prefix` (forme utilisée), `target_app`, `type`, `base_path` (`service + version`), `host` et ses chemins (`template` tel qu'écrit, `path` complet comparable aux endpoints) ; une dépendance déclarée sous les deux formes est fusionnée, `cafat.config` l'emportant ;
   - l'application cible est le dernier segment de `service` sans `/` ni `-` de bord (`/s-gen-geo-` → `s-gen-geo`), sinon le nom de la dépendance. Elle est reprise dans `target_app` de chaque appel qui cite la dépendance, à la place de l'hôte (la passerelle) ;
   - un hôte absent ne donne pas `URL_UNRESOLVED` : `resolved_url` reste `null`, le chemin et la cible sont connus ;
-  - `called` (dépendance ou chemin) vaut `true` si l'URL brute d'un appel cite la clé ; une entrée sans `service` ni `path` (`springboot.host`) n'est pas une dépendance.
+  - `called` (dépendance ou chemin) vaut `true` si l'URL brute d'un appel cite la clé ; une entrée sans `service` ni `path` (`springboot.host`, `host`) n'est pas une dépendance.
 - **Schéma par défaut** : celui de la source de données (`currentSchema` PostgreSQL, première bibliothèque DB2 `libraries=`, `hibernate.default_schema`). Il s'applique aux tables sans schéma : entités, tables secondaires, tables de jointure et SQL.
 - **`is_view`** vaut `true` dans trois cas :
   - schéma de vues (`--view-schemas`) ;

@@ -1,5 +1,12 @@
 {
   "application": {
+    "cloud_config": {
+      "client": false,
+      "files": [],
+      "label": null,
+      "names": [],
+      "status": "not_client"
+    },
     "commit": "abc1234",
     "context_path": "/gpp",
     "datasources": [
@@ -30,6 +37,7 @@
         }
       }
     ],
+    "environment": null,
     "id": "s-gen-fixture",
     "module": null,
     "name": "s-gen-fixture",
@@ -168,9 +176,9 @@
     },
     {
       "code": "PROFILE_NOT_APPLIED",
-      "id": "s-gen-fixture:PROFILE_NOT_APPLIED:bf9369ec520a",
+      "id": "s-gen-fixture:PROFILE_NOT_APPLIED:c5c97689cd6c",
       "level": "info",
-      "message": "aucun profil demandé (--profile) : configuration de base seule ; profils disponibles : dev, prod",
+      "message": "aucun profil demandé (--profile) ni déclaré : configuration de base seule ; profils disponibles : dev, prod",
       "source": null
     },
     {

@@ -19,36 +19,47 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Dépendances REST déclarées selon la convention CAFAT :
+ * Dépendances REST déclarées selon la convention CAFAT, sous deux formes :
  *
  * <pre>
- * nc.cafat.rest-dependency:
- *   springboot.host: https://api…        # hôte par type de cible
+ * nc.cafat.rest-dependency:              # configuration locale de l'application
+ *   springboot.host: https://api…        # hôte par type de cible : &lt;type&gt;.host
  *   s-gen-geo:
  *     service: /s-gen-geo-
  *     version: 5.0
  *     type: springboot
  *     path:
  *       pays: /pays/%s
+ *
+ * cafat.config.rest-dependency:          # dépôt Spring Cloud Config (profil rest-dependency)
+ *   host:
+ *     springboot: https://api…           # hôte par type de cible : host.&lt;type&gt;
+ *   s-gen-iam:
+ *     service: /s-gen-iam-
+ *     version: 5.1
+ *     type: springboot
+ *     path:
+ *       assure:
+ *         account: /assure/account       # chemin imbriqué : clé assure.account
  * </pre>
  *
- * <p>Une URL d'appel vaut {@code <type>.host + service + version + path.<cle>}. L'application cible
+ * <p>Une URL d'appel vaut {@code hôte(type) + service + version + path.<cle>}. L'application cible
  * est le dernier segment de {@code service} sans tirets ni barres de bord, sinon le nom de la
- * dépendance. Une entrée sans {@code service} ni {@code path} (ex. {@code springboot.host}) n'est
- * pas une dépendance.
+ * dépendance. Une entrée sans {@code service} ni {@code path} (ex. {@code springboot.host},
+ * {@code host}) n'est pas une dépendance. Une dépendance déclarée sous les deux préfixes est
+ * fusionnée, la forme {@code cafat.config} l'emportant clé par clé.
  */
 public final class RestDependencyExtractor {
 
-  /** Préfixe de la convention, pour une recherche relâchée dans la configuration. */
-  public static final String PREFIX = "nc.cafat.rest-dependency.";
+  /** Préfixes de la convention, du moins au plus prioritaire. */
+  public static final List<String> PREFIXES = List.of("nc.cafat.rest-dependency", "cafat.config.rest-dependency");
 
-  private static final Pattern KEY = Pattern.compile("^nc\\.cafat\\.rest[-_]?dependency\\.([^.]+)\\.(.+)$",
-      Pattern.CASE_INSENSITIVE);
+  private static final String PREFIX_RE = "(nc\\.cafat|cafat\\.config)\\.rest[-_]?dependency";
+  private static final Pattern KEY = Pattern.compile("^" + PREFIX_RE + "\\.([^.]+)\\.(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern REFERENCE = Pattern.compile(
-      "nc\\.cafat\\.rest[-_]?dependency\\.([A-Za-z0-9_-]+)\\.(?:service|version|type|path\\.([^}]+))\\}",
-      Pattern.CASE_INSENSITIVE);
-  private static final Pattern HOST_KEY = Pattern.compile("^nc\\.cafat\\.rest[-_]?dependency\\.[A-Za-z0-9_-]+\\.host$",
-      Pattern.CASE_INSENSITIVE);
+      PREFIX_RE + "\\.([A-Za-z0-9_-]+)\\.(?:service|version|type|path\\.([^}]+))\\}", Pattern.CASE_INSENSITIVE);
+  private static final Pattern HOST_KEY = Pattern.compile(
+      "^" + PREFIX_RE + "\\.(?:[A-Za-z0-9_-]+\\.host|host\\.[A-Za-z0-9_-]+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern APP_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]*");
   private static final String PATH = "path.";
 
@@ -73,10 +84,16 @@ public final class RestDependencyExtractor {
   public List<RestDependency> extract(List<Call> calls) {
     Config config = ctx.config();
     Map<String, Map<String, ConfigEntry>> byName = new TreeMap<>();
-    for (ConfigEntry e : config.entries()) {
-      Matcher m = KEY.matcher(e.key());
-      if (m.matches()) {
-        byName.computeIfAbsent(m.group(1), k -> new TreeMap<>()).put(m.group(2), e);
+    Map<String, String> prefixOf = new TreeMap<>();
+    for (String prefix : PREFIXES) {
+      for (ConfigEntry e : config.entries()) {
+        Matcher m = KEY.matcher(e.key());
+        if (m.matches() && prefix(m.group(1)).equals(prefix)) {
+          byName.computeIfAbsent(m.group(2), k -> new TreeMap<>()).put(m.group(3), e);
+          if (Config.normalize(m.group(3)).equals("service") || !prefixOf.containsKey(m.group(2))) {
+            prefixOf.put(m.group(2), prefix);
+          }
+        }
       }
     }
     Set<String> calledNames = new HashSet<>();
@@ -84,9 +101,9 @@ public final class RestDependencyExtractor {
     for (Call c : calls) {
       Matcher m = REFERENCE.matcher(c.rawUrl() == null ? "" : c.rawUrl());
       while (m.find()) {
-        calledNames.add(Config.normalize(m.group(1)));
-        if (m.group(2) != null) {
-          calledPaths.add(Config.normalize(m.group(1)) + "\u0000" + Config.normalize(m.group(2)));
+        calledNames.add(Config.normalize(m.group(2)));
+        if (m.group(3) != null) {
+          calledPaths.add(Config.normalize(m.group(2)) + "\u0000" + Config.normalize(m.group(3)));
         }
       }
     }
@@ -105,11 +122,12 @@ public final class RestDependencyExtractor {
       if (service == null && paths.isEmpty()) {
         continue;
       }
+      String prefix = prefixOf.get(name);
       String serviceValue = value(service);
       String version = value(child(children, "version"));
       String type = value(child(children, "type"));
       String basePath = serviceValue == null ? null : serviceValue + (version == null ? "" : version);
-      String host = type == null ? null : Secrets.sanitizeUrl(config.get(PREFIX + type + ".host"));
+      String host = type == null ? null : Secrets.sanitizeUrl(host(config, prefix, type));
       List<RestDependencyPath> declared = new ArrayList<>();
       paths.forEach((pathName, e) -> {
         String template = value(e);
@@ -119,26 +137,46 @@ public final class RestDependencyExtractor {
             calledPaths.contains(Config.normalize(name) + "\u0000" + Config.normalize(pathName)), source(e)));
       });
       ConfigEntry first = service != null ? service : children.values().iterator().next();
-      out.add(new RestDependency(ctx.appId() + ":rest-dependency:" + name, name, targetApp(config, name), type,
-          serviceValue, version, basePath, host, calledNames.contains(Config.normalize(name)), declared,
+      out.add(new RestDependency(ctx.appId() + ":rest-dependency:" + name, name, prefix, targetApp(config, name),
+          type, serviceValue, version, basePath, host, calledNames.contains(Config.normalize(name)), declared,
           source(first)));
     }
     return out;
   }
 
+  /** Préfixe canonique d'une forme trouvée dans une clé ({@code nc.cafat} ou {@code cafat.config}). */
+  private static String prefix(String owner) {
+    return owner.toLowerCase(Locale.ROOT) + ".rest-dependency";
+  }
+
+  /** Hôte d'un type de cible : {@code <type>.host} ou {@code host.<type>}, préfixe de la dépendance d'abord. */
+  private static String host(Config config, String prefix, String type) {
+    List<String> prefixes = new ArrayList<>(List.of(prefix));
+    PREFIXES.stream().filter(p -> !p.equals(prefix)).forEach(prefixes::add);
+    for (String p : prefixes) {
+      String h = config.first(p + "." + type + ".host", p + ".host." + type);
+      if (h != null) {
+        return h;
+      }
+    }
+    return null;
+  }
+
   /**
-   * Nom de la dépendance citée par une URL brute ({@code ${nc.cafat.rest-dependency.<nom>.service}}…).
+   * Nom de la dépendance citée par une URL brute ({@code ${nc.cafat.rest-dependency.<nom>.service}},
+   * {@code ${cafat.config.rest-dependency.<nom>.path.<cle>}}…).
    *
    * @param rawUrl URL brute d'un appel ; null accepté
    * @return nom de la première dépendance citée ; null si aucune
    */
   static String referenced(String rawUrl) {
     Matcher m = REFERENCE.matcher(rawUrl == null ? "" : rawUrl);
-    return m.find() ? m.group(1) : null;
+    return m.find() ? m.group(2) : null;
   }
 
   /**
-   * Vrai si les seules clés manquantes sont des hôtes de la convention ({@code <type>.host}), propres
+   * Vrai si les seules clés manquantes sont des hôtes de la convention ({@code <type>.host} ou
+   * {@code host.<type>}), propres
    * à l'environnement et sans effet sur l'application cible ni le chemin.
    *
    * @param missing clés manquantes d'une résolution
@@ -153,11 +191,12 @@ public final class RestDependencyExtractor {
    * {@code -} de bord ({@code /s-gen-geo-} → {@code s-gen-geo}), sinon le nom de la dépendance.
    *
    * @param config configuration effective
-   * @param name nom de la dépendance sous {@code nc.cafat.rest-dependency}
+   * @param name nom de la dépendance sous l'un des {@link #PREFIXES}
    * @return nom de l'application cible
    */
   static String targetApp(Config config, String name) {
-    String service = config.get(PREFIX + name + ".service");
+    String service = config.first(PREFIXES.get(1) + "." + name + ".service",
+        PREFIXES.get(0) + "." + name + ".service");
     if (service != null) {
       String s = service.replaceAll("^[/-]+|[/-]+$", "");
       s = s.substring(s.lastIndexOf('/') + 1);

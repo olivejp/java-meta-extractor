@@ -74,10 +74,15 @@ public final class DiagnosticCatalog {
         Origin.LAUNCH, "seuls les fichiers communs (application*.yml) du dépôt de configuration sont appliqués",
         "vérifier spring.application.name (ou spring.cloud.config.name), la branche extraite du dépôt de "
             + "configuration et --config-search-paths (search-paths du serveur)");
-    add("PROFILE_NOT_APPLIED", "aucun profil Spring demandé", Origin.LAUNCH,
+    add("PROFILE_NOT_APPLIED", "aucun profil Spring demandé ni déclaré", Origin.LAUNCH,
         "seule la configuration de base est lue : les valeurs propres aux profils sont ignorées",
         "relancer avec --profile <profil> si les URL, datasources ou files de l'environnement visé "
-            + "sont définies dans un profil");
+            + "sont définies dans un profil (sans --profile, spring.profiles.active/include/group de "
+            + "l'application s'appliquent)");
+    add("CLOUD_CONFIG_LABEL_MISMATCH", "branche du dépôt de configuration différente de l'environnement",
+        Origin.LAUNCH, "la configuration distante appliquée est celle d'un autre environnement que --environment",
+        "extraire le dépôt Spring Cloud Config sur la branche de l'environnement ciblé (git clone -b <env>) "
+            + "ou corriger --environment");
     add("KOTLIN_SKIPPED", "fichiers Kotlin ignorés", Origin.LAUNCH,
         "le code Kotlin cité n'est pas analysé",
         "lancer le jar de l'extracteur complet (traduction Kotlin activée)");

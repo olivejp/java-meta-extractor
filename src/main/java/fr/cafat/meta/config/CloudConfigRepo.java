@@ -1,6 +1,7 @@
 package fr.cafat.meta.config;
 
 import fr.cafat.meta.extract.Diagnostics;
+import fr.cafat.meta.scan.GitInfo;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -23,6 +24,9 @@ import java.util.stream.Stream;
  * niveau : racine du dépôt, puis répertoires de recherche dans l'ordre ; {@code .properties}
  * prioritaire sur {@code .yml}/{@code .yaml}. Sans profil demandé : profil {@code default}, comme le
  * client. Valeurs chiffrées {@code {cipher}…} : masquées.
+ *
+ * <p>À la CAFAT, une branche par environnement ({@code dev}, {@code int}, {@code val}…) : la branche
+ * extraite est lue dans {@code .git} ({@link #label()}).
  */
 public final class CloudConfigRepo {
 
@@ -36,6 +40,16 @@ public final class CloudConfigRepo {
 
   private final Path root;
   private final List<String> searchPaths;
+  private final String label;
+
+  /**
+   * Fichiers appliqués à une application.
+   *
+   * @param files fichiers lus, relatifs au dépôt de configuration, du moins au plus prioritaire
+   * @param found vrai si au moins un fichier propre à l'application ({@code {nom}[-profil].*}) existe
+   */
+  public record Applied(List<String> files, boolean found) {
+  }
 
   /**
    * Dépôt de configuration.
@@ -48,6 +62,16 @@ public final class CloudConfigRepo {
   public CloudConfigRepo(Path root, List<String> searchPaths) {
     this.root = root.toAbsolutePath().normalize();
     this.searchPaths = List.copyOf(searchPaths);
+    this.label = GitInfo.branch(this.root);
+  }
+
+  /**
+   * Branche extraite du clone (label servi par le serveur, soit l'environnement à la CAFAT).
+   *
+   * @return nom de la branche lu dans {@code .git/HEAD} ; null sans {@code .git} ou HEAD détaché
+   */
+  public String label() {
+    return label;
   }
 
   /**
@@ -110,9 +134,9 @@ public final class CloudConfigRepo {
    * @param names noms de l'application ({@link #names}), dans l'ordre de priorité croissante
    * @param profiles profils demandés, dans l'ordre ; liste vide : profil {@code default}
    * @param diagnostics collecteur des {@code CONFIG_PARSE_ERROR} et {@code CLOUD_CONFIG_NOT_FOUND}
-   * @return fichiers appliqués, du moins au plus prioritaire ; liste vide si aucun
+   * @return fichiers appliqués et présence d'un fichier propre à l'application
    */
-  public List<Path> apply(Config config, List<String> names, List<String> profiles, Diagnostics diagnostics) {
+  public Applied apply(Config config, List<String> names, List<String> profiles, Diagnostics diagnostics) {
     List<String> active = profiles.isEmpty() ? List.of("default") : profiles;
     List<Path> dirs = directories(names, active);
     List<String> bases = new ArrayList<>();
@@ -123,7 +147,7 @@ public final class CloudConfigRepo {
       names.forEach(n -> bases.add(n + "-" + p));
     }
     ConfigLoader loader = new ConfigLoader(diagnostics, p -> PREFIX + relative(p));
-    List<Path> applied = new ArrayList<>();
+    List<String> applied = new ArrayList<>();
     boolean own = false;
     for (String base : bases) {
       for (Path dir : dirs) {
@@ -132,7 +156,7 @@ public final class CloudConfigRepo {
           if (!Files.isRegularFile(f)) {
             continue;
           }
-          applied.add(f);
+          applied.add(relative(f));
           own |= !base.equals("application") && !base.startsWith("application-");
           for (List<ConfigEntry> doc : loader.read(f)) {
             String cond = ConfigLoader.activation(doc);
@@ -149,7 +173,7 @@ public final class CloudConfigRepo {
           + " (répertoires lus : " + String.join(", ", dirs.stream().map(this::label).toList()) + ")",
           null);
     }
-    return applied;
+    return new Applied(List.copyOf(applied), own);
   }
 
   /** Racine puis répertoires de recherche existants, sans doublon, dans l'ordre. */

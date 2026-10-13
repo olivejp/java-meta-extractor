@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/** Lecture hors ligne de .git : URL du remote origin (sans identifiants) et commit de HEAD. */
+/** Lecture hors ligne de .git : URL du remote origin (sans identifiants), commit et branche de HEAD. */
 public final class GitInfo {
 
   private static final Pattern SHA = Pattern.compile("[0-9a-f]{40}");
@@ -90,6 +90,26 @@ public final class GitInfo {
       u = u.substring(0, u.length() - 1);
     }
     return u.isEmpty() ? null : u;
+  }
+
+  /**
+   * Branche extraite (HEAD symbolique {@code ref: refs/heads/<branche>}), ou null.
+   *
+   * @param repo racine du dépôt ; {@code .git} répertoire ou fichier {@code gitdir:} (worktree)
+   * @return nom de la branche (ex. {@code dev}) ; null si HEAD détaché, absent ou illisible
+   */
+  public static String branch(Path repo) {
+    Path git = gitDir(repo);
+    if (git == null) {
+      return null;
+    }
+    try {
+      String head = Files.readString(git.resolve("HEAD"), StandardCharsets.UTF_8).strip();
+      String prefix = "ref: refs/heads/";
+      return head.startsWith(prefix) && head.length() > prefix.length() ? head.substring(prefix.length()) : null;
+    } catch (IOException e) {
+      return null;
+    }
   }
 
   /**

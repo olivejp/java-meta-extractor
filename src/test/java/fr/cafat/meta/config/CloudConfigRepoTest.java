@@ -37,10 +37,11 @@ class CloudConfigRepoTest {
     Config config = local("a", "local", "e", "local");
     Diagnostics diags = new Diagnostics();
 
-    List<Path> applied = new CloudConfigRepo(repo, List.of()).apply(config, List.of("s-app"), List.of("prod"), diags);
+    CloudConfigRepo.Applied applied = new CloudConfigRepo(repo, List.of()).apply(config, List.of("s-app"),
+        List.of("prod"), diags);
 
-    assertThat(applied).extracting(p -> p.getFileName().toString())
-        .containsExactly("application.yml", "s-app.yml", "application-prod.yml", "s-app-prod.properties");
+    assertThat(applied.found()).isTrue();
+    assertThat(applied.files()).containsExactly("application.yml", "s-app.yml", "application-prod.yml", "s-app-prod.properties");
     assertThat(config.get("a")).isEqualTo("commun");
     assertThat(config.get("b")).isEqualTo("app");
     assertThat(config.get("c")).isEqualTo("commun-prod");

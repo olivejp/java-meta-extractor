@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 /**
- * Application déployable analysée : identité, version, technologies, dépôt, commit, profils et
- * sources de données.
+ * Application déployable analysée : identité, version, technologies, dépôt, commit, profils
+ * appliqués, environnement ciblé, passage sous Spring Cloud Config et sources de données.
  */
 public record Application(
     @JsonProperty("id") String id,
@@ -17,5 +17,7 @@ public record Application(
     @JsonProperty("module") String module,
     @JsonProperty("profiles") List<String> profiles,
     @JsonProperty("context_path") String contextPath,
+    @JsonProperty("environment") String environment,
+    @JsonProperty("cloud_config") CloudConfig cloudConfig,
     @JsonProperty("datasources") List<Datasource> datasources) {
 }

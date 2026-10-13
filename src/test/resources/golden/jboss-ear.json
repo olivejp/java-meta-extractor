@@ -1,5 +1,12 @@
 {
   "application": {
+    "cloud_config": {
+      "client": false,
+      "files": [],
+      "label": null,
+      "names": [],
+      "status": "not_client"
+    },
     "commit": "abc1234",
     "context_path": "/legacy",
     "datasources": [
@@ -30,6 +37,7 @@
         }
       }
     ],
+    "environment": null,
     "id": "jboss-ear",
     "module": "jboss-ear",
     "name": "jboss-ear",

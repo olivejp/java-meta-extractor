@@ -125,8 +125,26 @@ class ConfigLoaderTest {
   }
 
   @Test
-  void profilDisponibleMaisNonDemande() throws IOException {
-    Path base = write("application.yml", "spring:\n  profiles:\n    active: dev\n---\nspring:\n  profiles: recette\n");
+  void jetonMavenNonFiltreNeRendPasLeYamlIllisible() throws IOException {
+    Path base = write("application.yml", """
+        build:
+          description: @description@
+          liste:
+            - @inconnu@ suite
+        spring.application.name: s-app
+        """);
+
+    Config config = load(List.of(base));
+
+    assertThat(codes()).isEmpty();
+    assertThat(config.get("build.description")).isEqualTo("@description@");
+    assertThat(config.get("build.liste[0]")).isEqualTo("@inconnu@ suite");
+    assertThat(config.get("spring.application.name")).isEqualTo("s-app");
+  }
+
+  @Test
+  void profilDisponibleMaisNiDemandeNiDeclare() throws IOException {
+    Path base = write("application.yml", "a: 0\n---\nspring:\n  profiles: recette\n");
     Path prod = write("application-prod.yml", "a: 1\n");
 
     load(List.of(base, prod));
@@ -134,8 +152,48 @@ class ConfigLoaderTest {
     assertThat(diags.all()).singleElement().satisfies(d -> {
       assertThat(d.code()).isEqualTo("PROFILE_NOT_APPLIED");
       assertThat(d.level()).isEqualTo(Diagnostics.INFO);
-      assertThat(d.message()).contains("prod, recette").contains("spring.profiles.active=dev");
+      assertThat(d.message()).contains("prod, recette");
     });
+  }
+
+  @Test
+  void sansProfilDemandeLesProfilsDeclaresParLApplicationSAppliquent() throws IOException {
+    Path base = write("application.yml", """
+        a: base
+        spring:
+          profiles:
+            include: commun
+            active: application-modules
+            group:
+              application-modules:
+                - rest-dependency
+                - datasource
+              datasource:
+                - datasource-as400
+        """);
+    Path rest = write("application-rest-dependency.yml", "a: rest\n");
+    Path as400 = write("application-datasource-as400.yml", "b: as400\n");
+
+    ConfigLoader.Loaded loaded = new ConfigLoader(diags, p -> dir.relativize(p).toString())
+        .loadEffective(List.of(base, rest, as400), List.of());
+
+    assertThat(loaded.profiles()).containsExactly("commun", "application-modules", "rest-dependency", "datasource",
+        "datasource-as400");
+    assertThat(loaded.config().get("a")).isEqualTo("rest");
+    assertThat(loaded.config().get("b")).isEqualTo("as400");
+    assertThat(codes()).isEmpty();
+  }
+
+  @Test
+  void profilsDemandesPrioritairesSurLesProfilsDeclares() throws IOException {
+    Path base = write("application.yml", "spring.profiles.active: local\n");
+    Path local = write("application-local.yml", "a: local\n");
+
+    ConfigLoader.Loaded loaded = new ConfigLoader(diags, p -> dir.relativize(p).toString())
+        .loadEffective(List.of(base, local), List.of("prod"));
+
+    assertThat(loaded.profiles()).containsExactly("prod");
+    assertThat(loaded.config().get("a")).isNull();
   }
 
   @Test

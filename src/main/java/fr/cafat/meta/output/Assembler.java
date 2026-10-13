@@ -60,7 +60,7 @@ public final class Assembler {
     String appId = app.id();
     Application sortedApp = new Application(app.id(), app.name(), app.version(),
         List.copyOf(new TreeSet<>(app.tech())), app.repository(), app.commit(), app.module(),
-        app.profiles(), app.contextPath(),
+        app.profiles(), app.contextPath(), app.environment(), app.cloudConfig(),
         sorted(app.datasources(), Comparator.comparing(Datasource::id)));
 
     List<Entity> ents = new ArrayList<>();
@@ -81,7 +81,7 @@ public final class Assembler {
 
     List<RestDependency> deps = new ArrayList<>();
     for (RestDependency d : restDependencies) {
-      deps.add(new RestDependency(d.id(), d.name(), d.targetApp(), d.type(), d.service(), d.version(), d.basePath(),
+      deps.add(new RestDependency(d.id(), d.name(), d.configPrefix(), d.targetApp(), d.type(), d.service(), d.version(), d.basePath(),
           d.host(), d.called(), sorted(d.paths(), Comparator.comparing(RestDependencyPath::name)), d.source()));
     }
 

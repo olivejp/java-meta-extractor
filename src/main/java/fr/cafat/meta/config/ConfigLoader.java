@@ -16,13 +16,32 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Chargement de la configuration Spring d'une application : bootstrap*, application.yml/yaml,
  * application.properties (prioritaire sur le YAML), documents conditionnés par profil, puis
- * application-{profil}.* pour chaque profil demandé, dans l'ordre.
+ * application-{profil}.* pour chaque profil actif, dans l'ordre.
+ *
+ * <p>Profils actifs : ceux demandés ({@code --profile}), sinon ceux que l'application déclare dans
+ * sa configuration de base, comme Spring au démarrage : {@code spring.profiles.include}, puis
+ * {@code spring.profiles.active}, chaque profil suivi des membres de son
+ * {@code spring.profiles.group.<profil>}.
  */
 public final class ConfigLoader {
+
+  /** Valeur YAML qui commence par un jeton {@code @cle@} non filtré : préfixe (clé ou tiret), valeur. */
+  private static final Pattern UNFILTERED_VALUE = Pattern.compile("(?m)^(\\s*(?:-\\s+|[^#\\n:]+:\\s+))(@[A-Za-z0-9_.\\-]+@[^\\n]*?)\\s*$");
+
+  /**
+   * Configuration chargée et profils réellement appliqués.
+   *
+   * @param config configuration effective
+   * @param profiles profils actifs, dans l'ordre : demandés, sinon déclarés par l'application
+   */
+  public record Loaded(Config config, List<String> profiles) {
+  }
 
   private final Diagnostics diagnostics;
   private final Function<Path, String> relative;
@@ -77,6 +96,18 @@ public final class ConfigLoader {
    *     {@code CONFIG_PARSE_ERROR})
    */
   public Config load(List<Path> files, List<String> profiles) {
+    return loadEffective(files, profiles).config();
+  }
+
+  /**
+   * Configuration effective et profils actifs : demandés, sinon déclarés par l'application.
+   *
+   * @param files fichiers de configuration du module principal (puis des dépendances, en repli)
+   * @param requested profils demandés, dans l'ordre ; liste vide : profils déclarés dans la
+   *     configuration de base ({@code PROFILE_NOT_APPLIED} si aucun et que des profils existent)
+   * @return configuration chargée et profils appliqués
+   */
+  public Loaded loadEffective(List<Path> files, List<String> requested) {
     Config config = new Config();
     List<List<ConfigEntry>> conditional = new ArrayList<>();
     List<String> conditionalProfiles = new ArrayList<>();
@@ -97,6 +128,7 @@ public final class ConfigLoader {
         }
       }
     }
+    List<String> profiles = requested.isEmpty() ? declaredProfiles(config) : requested;
     for (int i = 0; i < conditional.size(); i++) {
       if (matches(conditionalProfiles.get(i), profiles)) {
         conditional.get(i).forEach(config::put);
@@ -128,13 +160,53 @@ public final class ConfigLoader {
       String declared = config.raw("spring.profiles.active");
       if (!available.isEmpty() || declared != null) {
         diagnostics.info("PROFILE_NOT_APPLIED",
-            "aucun profil demandé (--profile) : configuration de base seule ; profils disponibles : "
+            "aucun profil demandé (--profile) ni déclaré : configuration de base seule ; profils disponibles : "
                 + String.join(", ", available)
-                + (declared == null ? "" : " ; spring.profiles.active=" + declared),
+                + (declared == null ? "" : " ; spring.profiles.active non résolu : " + declared),
             null);
       }
     }
-    return config;
+    return new Loaded(config, List.copyOf(profiles));
+  }
+
+  /**
+   * Profils que l'application active elle-même : {@code spring.profiles.include}, puis
+   * {@code spring.profiles.active}, chacun suivi des membres de son groupe
+   * ({@code spring.profiles.group.<profil>}, dépliés récursivement), sans doublon.
+   *
+   * @param config configuration de base (sans les fichiers de profil)
+   * @return profils dans l'ordre d'activation ; vide si rien n'est déclaré ou résolu
+   */
+  static List<String> declaredProfiles(Config config) {
+    List<String> out = new ArrayList<>();
+    for (String key : List.of("spring.profiles.include", "spring.profiles.active")) {
+      for (String p : split(config.get(key))) {
+        addWithGroup(config, p, out, 0);
+      }
+    }
+    return out;
+  }
+
+  private static void addWithGroup(Config config, String profile, List<String> out, int depth) {
+    if (out.contains(profile) || depth > 10) {
+      return;
+    }
+    out.add(profile);
+    for (String member : split(config.get("spring.profiles.group." + profile))) {
+      addWithGroup(config, member, out, depth + 1);
+    }
+  }
+
+  private static List<String> split(String value) {
+    List<String> out = new ArrayList<>();
+    if (value != null && !value.contains("${")) {
+      for (String p : value.split(",")) {
+        if (!p.isBlank()) {
+          out.add(p.strip());
+        }
+      }
+    }
+    return out;
   }
 
   private static Path find(List<Path> files, String name) {
@@ -146,13 +218,29 @@ public final class ConfigLoader {
     return null;
   }
 
-  /** Documents du fichier (un par document YAML) ; liste vide si illisible ({@code CONFIG_PARSE_ERROR}). */
+  /**
+   * Documents du fichier (un par document YAML) ; liste vide si illisible ({@code CONFIG_PARSE_ERROR}).
+   * Un YAML invalide à cause d'un jeton Maven {@code @cle@} resté non filtré (valeur héritée d'un
+   * parent hors du dépôt, ex. {@code @description@}) est relu avec ces valeurs entre guillemets.
+   */
   List<List<ConfigEntry>> read(Path f) {
     String rel = relative.apply(f);
     try {
       String text = buildFilter.apply(f, decode(Files.readAllBytes(f)));
       String name = f.getFileName().toString().toLowerCase(Locale.ROOT);
-      return name.endsWith(".properties") ? PropertiesParser.parse(text, rel) : YamlFlattener.parse(text, rel);
+      if (name.endsWith(".properties")) {
+        return PropertiesParser.parse(text, rel);
+      }
+      try {
+        return YamlFlattener.parse(text, rel);
+      } catch (RuntimeException e) {
+        String quoted = UNFILTERED_VALUE.matcher(text).replaceAll(m -> Matcher.quoteReplacement(
+            m.group(1) + "\"" + m.group(2).replace("\\", "\\\\").replace("\"", "\\\"") + "\""));
+        if (quoted.equals(text)) {
+          throw e;
+        }
+        return YamlFlattener.parse(quoted, rel);
+      }
     } catch (IOException | RuntimeException e) {
       diagnostics.error("CONFIG_PARSE_ERROR", "configuration illisible : " + firstLine(e.getMessage()),
           Source.file(rel, null));

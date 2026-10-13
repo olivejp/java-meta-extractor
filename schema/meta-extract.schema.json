@@ -57,7 +57,7 @@
     "application": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "version", "tech", "repository", "commit", "module", "profiles", "context_path", "datasources"],
+      "required": ["id", "name", "version", "tech", "repository", "commit", "module", "profiles", "context_path", "environment", "cloud_config", "datasources"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "name": { "type": "string", "minLength": 1 },
@@ -68,7 +68,23 @@
         "module": { "$ref": "#/$defs/nullable_string" },
         "profiles": { "$ref": "#/$defs/string_list" },
         "context_path": { "$ref": "#/$defs/nullable_string" },
+        "environment": { "$ref": "#/$defs/nullable_string" },
+        "cloud_config": { "$ref": "#/$defs/cloud_config" },
         "datasources": { "type": "array", "items": { "$ref": "#/$defs/datasource" } }
+      }
+    },
+
+    "cloud_config": {
+      "description": "Passage sous Spring Cloud Config : client vaut true si l'application est cliente du serveur de configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client", "status", "names", "label", "files"],
+      "properties": {
+        "client": { "type": "boolean" },
+        "status": { "enum": ["not_client", "not_provided", "not_found", "applied"] },
+        "names": { "$ref": "#/$defs/string_list" },
+        "label": { "$ref": "#/$defs/nullable_string" },
+        "files": { "$ref": "#/$defs/string_list" }
       }
     },
 
@@ -257,13 +273,14 @@
     },
 
     "rest_dependency": {
-      "description": "Dépendance déclarée sous nc.cafat.rest-dependency.<name> (convention CAFAT).",
+      "description": "Dépendance déclarée sous nc.cafat.rest-dependency.<name> ou cafat.config.rest-dependency.<name> (convention CAFAT).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "target_app", "type", "service", "version", "base_path", "host", "called", "paths", "source"],
+      "required": ["id", "name", "config_prefix", "target_app", "type", "service", "version", "base_path", "host", "called", "paths", "source"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "name": { "type": "string", "minLength": 1 },
+        "config_prefix": { "enum": ["nc.cafat.rest-dependency", "cafat.config.rest-dependency"] },
         "target_app": { "type": "string", "minLength": 1 },
         "type": { "$ref": "#/$defs/nullable_string" },
         "service": { "$ref": "#/$defs/nullable_string" },
