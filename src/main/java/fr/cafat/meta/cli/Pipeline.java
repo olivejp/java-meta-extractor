@@ -14,6 +14,7 @@ import fr.cafat.meta.extract.PersistenceExtractor;
 import fr.cafat.meta.extract.calls.CallExtractor;
 import fr.cafat.meta.extract.calls.RestDependencyExtractor;
 import fr.cafat.meta.extract.entities.EntityDraft;
+import fr.cafat.meta.extract.entities.FactoryNaming;
 import fr.cafat.meta.extract.entities.NamingStrategy;
 import fr.cafat.meta.extract.jms.JmsExtractor;
 import fr.cafat.meta.extract.rest.EndpointExtractor;
@@ -32,6 +33,7 @@ import fr.cafat.meta.model.SqlAccess;
 import fr.cafat.meta.output.Assembler;
 import fr.cafat.meta.parse.SpoonLoader;
 import fr.cafat.meta.resolve.DatasourceResolver;
+import fr.cafat.meta.resolve.IdentifierCase;
 import fr.cafat.meta.scan.GitInfo;
 import fr.cafat.meta.scan.Module;
 import fr.cafat.meta.scan.RepoScanner;
@@ -294,14 +296,16 @@ public final class Pipeline {
     boolean springBoot = isSpringBoot(p.unit(), index);
     List<WebModule> webModules = WebModules.detect(p.unit(), p.config(), diags, scanner::relative);
     NamingStrategy naming = NamingStrategy.detect(p.config(), p.persistenceUnits(), springBoot, diags);
-    ExtractionContext ctx = new ExtractionContext(appId, root, model, index, new ValueEval(index), provenance,
+    ValueEval eval = new ValueEval(index, RestDependencyExtractor.keyedCall(p.config()));
+    naming = FactoryNaming.apply(naming, index, eval, p.config(), springBoot, diags);
+    ExtractionContext ctx = new ExtractionContext(appId, root, model, index, eval, provenance,
         diags, p.config(), naming, options.viewSchemas(), p.persistenceUnits(), p.resources(), webModules);
 
     PersistenceExtractor.Result persistence = isolated(diags, "entités et relations JPA",
         () -> PersistenceExtractor.run(ctx), () -> new PersistenceExtractor.Result(new HashMap<>(), List.of()));
     List<SqlExtractor.SqlDraft> sql = isolated(diags, "accès SQL", () -> new SqlExtractor(ctx).extract(), List::of);
     List<Detected> detected = isolated(diags, "détection des sources de données",
-        () -> DatasourceDetector.detect(p.config(), p.persistenceUnits()), List::of);
+        () -> DatasourceDetector.detect(p.config(), p.persistenceUnits(), options.environment()), List::of);
     DatasourceResolver.Result resolved = isolated(diags, "rattachement aux sources de données",
         () -> new DatasourceResolver(ctx, detected, persistence.drafts()).resolve(sql, persistence.relations()),
         () -> new DatasourceResolver.Result(sql.stream().map(SqlExtractor.SqlDraft::access).toList(),
@@ -319,13 +323,15 @@ public final class Pipeline {
 
     Map<String, Datasource> datasources = new LinkedHashMap<>();
     detected.forEach(d -> datasources.putIfAbsent(d.datasource().id(), d.datasource()));
+    IdentifierCase.Result named = IdentifierCase.apply(entities, resolved.relations(), resolved.sqlAccesses(),
+        datasources);
     Module main = p.unit().main();
     String version = main.version() == null || main.version().contains("${") ? null : main.version();
     Application app = new Application(appId, appId, version,
-        tech(p, index, springBoot, entities, resolved.sqlAccesses(), endpoints, messaging),
+        tech(p, index, springBoot, named.entities(), named.sql(), endpoints, messaging),
         repository, commit, main.relativeDir().isEmpty() ? null : main.relativeDir(), p.profiles(),
         contextPath(webModules), options.environment(), p.cloud(), List.copyOf(datasources.values()));
-    return Assembler.assemble(app, entities, resolved.relations(), resolved.sqlAccesses(), endpoints, calls,
+    return Assembler.assemble(app, named.entities(), named.relations(), named.sql(), endpoints, calls,
         restDependencies, messaging, diags.all());
   }
 

@@ -3,8 +3,11 @@ package fr.cafat.meta.extract.entities;
 import fr.cafat.meta.config.Config;
 import fr.cafat.meta.config.PersistenceUnit;
 import fr.cafat.meta.extract.Diagnostics;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Noms physiques à la manière d'Hibernate. Spring Boot : stratégie implicite
@@ -20,6 +23,8 @@ public final class NamingStrategy {
 
   private final Physical physical;
   private final boolean springImplicit;
+  /** Stratégies propres aux classes d'un paquet (fabrique d'EntityManager), paquet le plus long d'abord. */
+  private final List<Map.Entry<String, NamingStrategy>> byPackage;
 
   /**
    * Stratégie de nommage explicite.
@@ -29,8 +34,44 @@ public final class NamingStrategy {
    *     false : noms implicites JPA
    */
   public NamingStrategy(Physical physical, boolean springImplicit) {
+    this(physical, springImplicit, List.of());
+  }
+
+  private NamingStrategy(Physical physical, boolean springImplicit, List<Map.Entry<String, NamingStrategy>> byPackage) {
     this.physical = physical;
     this.springImplicit = springImplicit;
+    this.byPackage = byPackage;
+  }
+
+  /**
+   * Même stratégie, sauf pour les classes des paquets donnés.
+   *
+   * @param packages stratégie par paquet (ex. paquets scannés par une fabrique d'EntityManager)
+   * @return nouvelle stratégie ; le paquet le plus long l'emporte
+   */
+  public NamingStrategy withPackages(Map<String, NamingStrategy> packages) {
+    List<Map.Entry<String, NamingStrategy>> list = new ArrayList<>(byPackage);
+    packages.forEach((pkg, n) -> list.add(Map.entry(pkg, n)));
+    list.sort(Comparator.comparingInt((Map.Entry<String, NamingStrategy> e) -> -e.getKey().length())
+        .thenComparing(Map.Entry::getKey));
+    return new NamingStrategy(physical, springImplicit, List.copyOf(list));
+  }
+
+  /**
+   * Stratégie appliquée à une classe : celle de son paquet s'il en a une, sinon celle-ci.
+   *
+   * @param qualifiedName nom qualifié de la classe ; null accepté
+   * @return stratégie de la classe
+   */
+  public NamingStrategy forClass(String qualifiedName) {
+    if (qualifiedName != null) {
+      for (Map.Entry<String, NamingStrategy> e : byPackage) {
+        if (qualifiedName.startsWith(e.getKey() + ".")) {
+          return e.getValue();
+        }
+      }
+    }
+    return this;
   }
 
   /**
@@ -89,6 +130,18 @@ public final class NamingStrategy {
     if (declared == null) {
       return new NamingStrategy(springBoot ? Physical.SNAKE_CASE : Physical.IDENTITY, springImplicit);
     }
+    return ofClass(declared, springImplicit, diagnostics);
+  }
+
+  /**
+   * Stratégie d'une classe de stratégie physique Hibernate déclarée.
+   *
+   * @param declared nom (qualifié ou simple) de la classe de stratégie physique
+   * @param springImplicit true : noms implicites à la Spring
+   * @param diagnostics collecteur du {@code NAMING_STRATEGY_UNKNOWN}
+   * @return stratégie reconnue ; {@link Physical#UNKNOWN} si la classe est personnalisée
+   */
+  static NamingStrategy ofClass(String declared, boolean springImplicit, Diagnostics diagnostics) {
     String simple = declared.substring(declared.lastIndexOf('.') + 1);
     switch (simple) {
       case "CamelCaseToUnderscoresNamingStrategy", "SpringPhysicalNamingStrategy", "ImprovedNamingStrategy" -> {

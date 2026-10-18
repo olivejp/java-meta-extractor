@@ -219,13 +219,13 @@
           "java_type": "String",
           "kind": "basic",
           "length": null,
-          "name": "NOM_USAGE",
+          "name": "nom_usage",
           "nullable": null,
           "pk": false,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "ASSURE",
+          "table": "assure",
           "unique": null
         },
         {
@@ -237,13 +237,13 @@
           "java_type": "String",
           "kind": "id",
           "length": 13,
-          "name": "NUMERO",
+          "name": "numero",
           "nullable": false,
           "pk": true,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "ASSURE",
+          "table": "assure",
           "unique": true
         }
       ],
@@ -261,7 +261,7 @@
         "file": "jboss-ejb/src/main/java/fr/cafat/legacy/domain/Assure.java",
         "line": 12
       },
-      "table": "ASSURE"
+      "table": "assure"
     },
     {
       "class": "fr.cafat.legacy.domain.Contrat",
@@ -275,13 +275,13 @@
           "java_type": "fr.cafat.legacy.domain.Assure",
           "kind": "join",
           "length": null,
-          "name": "assure_NUMERO",
+          "name": "assure_numero",
           "nullable": null,
           "pk": false,
           "precision": null,
           "references": "jboss-ear:fr.cafat.legacy.domain.Assure",
           "scale": null,
-          "table": "Contrat",
+          "table": "contrat",
           "unique": null
         },
         {
@@ -293,13 +293,13 @@
           "java_type": "java.util.Date",
           "kind": "basic",
           "length": null,
-          "name": "dateEffet",
+          "name": "dateeffet",
           "nullable": null,
           "pk": false,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "Contrat",
+          "table": "contrat",
           "unique": null
         },
         {
@@ -311,13 +311,13 @@
           "java_type": "Long",
           "kind": "id",
           "length": null,
-          "name": "idContrat",
+          "name": "idcontrat",
           "nullable": false,
           "pk": true,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "Contrat",
+          "table": "contrat",
           "unique": true
         }
       ],
@@ -335,7 +335,7 @@
         "file": "jboss-ejb/src/main/java/fr/cafat/legacy/domain/Contrat.java",
         "line": 11
       },
-      "table": "Contrat"
+      "table": "contrat"
     }
   ],
   "messaging": [
@@ -374,7 +374,7 @@
       "inherited_from": null,
       "inverse_join_columns": null,
       "join_columns": [
-        "assure_NUMERO"
+        "assure_numero"
       ],
       "join_table": null,
       "mapped_by": null,

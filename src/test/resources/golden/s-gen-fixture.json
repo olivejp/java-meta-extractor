@@ -370,13 +370,13 @@
           "java_type": "String",
           "kind": "id",
           "length": 5,
-          "name": "code_commune",
+          "name": "CODE_COMMUNE",
           "nullable": false,
           "pk": true,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "geo_commune",
+          "table": "GEO_COMMUNE",
           "unique": true
         },
         {
@@ -388,13 +388,13 @@
           "java_type": "String",
           "kind": "basic",
           "length": null,
-          "name": "libelle",
+          "name": "LIBELLE",
           "nullable": null,
           "pk": false,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "geo_commune",
+          "table": "GEO_COMMUNE",
           "unique": null
         }
       ],
@@ -405,14 +405,14 @@
       "kind": "entity",
       "name": "GeoCommune",
       "parent": null,
-      "schema": "cafgeo",
+      "schema": "CAFGEO",
       "secondary_tables": [],
       "source": {
         "class": "fr.cafat.gpp.db2.domain.GeoCommune",
         "file": "src/main/java/fr/cafat/gpp/db2/domain/GeoCommune.java",
         "line": 10
       },
-      "table": "geo_commune"
+      "table": "GEO_COMMUNE"
     },
     {
       "class": "fr.cafat.gpp.db2.domain.PersonneDb2",
@@ -426,13 +426,13 @@
           "java_type": "String",
           "kind": "basic",
           "length": null,
-          "name": "nom",
+          "name": "NOM",
           "nullable": null,
           "pk": false,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "gpp_personne_physique",
+          "table": "GPP_PERSONNE_PHYSIQUE",
           "unique": null
         },
         {
@@ -444,13 +444,13 @@
           "java_type": "Long",
           "kind": "id",
           "length": null,
-          "name": "numero_interne",
+          "name": "NUMERO_INTERNE",
           "nullable": false,
           "pk": true,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "gpp_personne_physique",
+          "table": "GPP_PERSONNE_PHYSIQUE",
           "unique": true
         }
       ],
@@ -461,14 +461,14 @@
       "kind": "entity",
       "name": "PersonneDb2",
       "parent": null,
-      "schema": "mgengpp",
+      "schema": "MGENGPP",
       "secondary_tables": [],
       "source": {
         "class": "fr.cafat.gpp.db2.domain.PersonneDb2",
         "file": "src/main/java/fr/cafat/gpp/db2/domain/PersonneDb2.java",
         "line": 11
       },
-      "table": "gpp_personne_physique"
+      "table": "GPP_PERSONNE_PHYSIQUE"
     },
     {
       "class": "fr.cafat.gpp.db2.domain.Union",
@@ -482,13 +482,13 @@
           "java_type": "Long",
           "kind": "id",
           "length": null,
-          "name": "id",
+          "name": "ID",
           "nullable": false,
           "pk": true,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "v_union",
+          "table": "V_UNION",
           "unique": true
         },
         {
@@ -500,13 +500,13 @@
           "java_type": "String",
           "kind": "basic",
           "length": 50,
-          "name": "libelle",
+          "name": "LIBELLE",
           "nullable": null,
           "pk": false,
           "precision": null,
           "references": null,
           "scale": null,
-          "table": "v_union",
+          "table": "V_UNION",
           "unique": null
         }
       ],
@@ -517,14 +517,14 @@
       "kind": "entity",
       "name": "Union",
       "parent": null,
-      "schema": "mgengpp",
+      "schema": "MGENGPP",
       "secondary_tables": [],
       "source": {
         "class": "fr.cafat.gpp.db2.domain.Union",
         "file": "src/main/java/fr/cafat/gpp/db2/domain/Union.java",
         "line": 11
       },
-      "table": "v_union"
+      "table": "V_UNION"
     },
     {
       "class": "fr.cafat.gpp.pg.domain.AbstractAuditEntity",

@@ -464,11 +464,22 @@ public final class CallExtractor {
       return;
     }
     String cleanRaw = Secrets.sanitizeUrl(raw);
-    Config.Resolution r = ctx.config().resolve(cleanRaw);
+    // Clé de chemin calculée à l'exécution : un appel par chemin déclaré compatible
+    RestDependencyExtractor.Alternatives alternatives = RestDependencyExtractor.alternatives(ctx.config(), cleanRaw);
+    if (alternatives != null) {
+      ctx.diagnostics().info("URL_ALTERNATIVES", "Chemin choisi à l'exécution : " + alternatives.key() + " → "
+          + String.join(", ", alternatives.keys()) + " (un appel par chemin possible)", source);
+      for (String url : alternatives.urls()) {
+        resolveAndAdd(client, verb, url, caller, at);
+      }
+      return;
+    }
+    Config.Resolution r = ctx.config().resolve(ctx.eval().spelProperties(cleanRaw));
     String value = formatVariables(Secrets.sanitizeUrl(r.value()));
     String host = host(value);
     String resolved = r.complete() && host != null ? value : null;
-    String path = path(resolved != null ? resolved : value);
+    // Clé de chemin de la convention non déclarée : chemin inconnu plutôt que la seule base du service
+    String path = RestDependencyExtractor.pathMissing(r.missing()) ? null : path(resolved != null ? resolved : value);
     // Convention nc.cafat.rest-dependency : la cible est dans la clé, l'hôte (passerelle) n'y ajoute rien.
     String dependency = RestDependencyExtractor.referenced(cleanRaw);
     String target = dependency == null ? null : RestDependencyExtractor.targetApp(ctx.config(), dependency);

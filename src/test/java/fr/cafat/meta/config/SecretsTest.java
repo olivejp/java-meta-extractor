@@ -13,6 +13,10 @@ class SecretsTest {
     assertThat(Secrets.isSensitiveKey("app.db400.user")).isTrue();
     assertThat(Secrets.isSensitiveKey("api.token")).isTrue();
     assertThat(Secrets.isSensitiveKey("partenaire.client-secret")).isTrue();
+    // chemin d'URL d'une dépendance REST, pas un secret ; l'hôte ou un autre champ le reste
+    assertThat(Secrets.isSensitiveKey("nc.cafat.rest-dependency.s-gen-iam.path.assure.reset-password")).isFalse();
+    assertThat(Secrets.isSensitiveKey("cafat.config.rest-dependency.s-gen-iam.path.password")).isFalse();
+    assertThat(Secrets.isSensitiveKey("nc.cafat.rest-dependency.s-gen-iam.password")).isTrue();
     assertThat(Secrets.isSensitiveKey("app.api_key")).isTrue();
     assertThat(Secrets.isSensitiveKey("ldap.credentials[0]")).isTrue();
     assertThat(Secrets.isSensitiveKey("spring.datasource.url")).isFalse();

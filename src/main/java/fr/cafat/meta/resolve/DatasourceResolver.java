@@ -28,8 +28,10 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,8 +59,9 @@ import spoon.reflect.visitor.filter.TypeFilter;
  * {@code @EnableJpaRepositories}, mapper couvert par {@code @MapperScan}, entité porteuse (requête
  * nommée), bean du même nom que le champ, bean {@code @Primary} ou unique de la famille
  * (JdbcTemplate, EntityManagerFactory, SqlSessionFactory…) ; si la famille n'a aucun bean
- * déclaré (auto-configuration), DataSource {@code @Primary} ou unique ; enfin unique source. À
- * défaut null et {@code DATASOURCE_AMBIGUOUS}.
+ * déclaré (auto-configuration), DataSource {@code @Primary} ou unique ; enfin unique source. Un
+ * bean Jdbi {@code <x>Jdbi} défini hors du dépôt est rattaché par son nom : bean {@code <x>DataSource},
+ * source {@code <x>}, ou unique source du type {@code <x>}. À défaut null et {@code DATASOURCE_AMBIGUOUS}.
  *
  * <p>Bean Spring → source : {@code @ConfigurationProperties} dont le préfixe est celui d'une source
  * détectée, nom JNDI littéral, sinon paramètres et appels d'autres méthodes {@code @Bean} (une
@@ -85,6 +88,9 @@ public final class DatasourceResolver {
   static final String MYBATIS = "SqlSessionFactory";
   static final String JDBI = "Jdbi";
   private static final String DEFAULT_EMF = "entityManagerFactory";
+  /** Nom de base d'un bean ({@code db400Jdbi}) → type de source ({@link Datasource#kind()}). */
+  private static final Map<String, String> KIND_ALIASES = Map.of("db400", "db2", "as400", "db2",
+      "iseries", "db2", "ibmi", "db2", "pg", "postgresql", "postgres", "postgresql", "ora", "oracle");
 
   private static final Set<String> SPRING_CONTEXT = Set.of("org.springframework.context.annotation");
   private static final Set<String> BOOT_PROPERTIES = Set.of("org.springframework.boot.context.properties");
@@ -122,6 +128,7 @@ public final class DatasourceResolver {
   private final List<PackageRule> repositoryPackages = new ArrayList<>();
   private final List<PackageRule> mapperPackages = new ArrayList<>();
   private final Map<String, Set<String>> listedClasses = new HashMap<>();
+  private final Map<String, String> inferredSchemas = new HashMap<>();
 
   /**
    * Prépare le rattachement aux sources de données.
@@ -163,16 +170,22 @@ public final class DatasourceResolver {
     sorted.sort(Comparator.comparing(d -> d.id));
     for (EntityDraft d : sorted) {
       d.datasource = entityDatasource(d);
-      Datasource ds = d.datasource == null ? null : byId.get(d.datasource);
-      d.defaultSchema(ds == null ? null : ds.defaultSchema());
+    }
+    List<String> sqlSources = new ArrayList<>();
+    for (SqlDraft s : sql) {
+      sqlSources.add(sqlDatasourceOrWarn(s));
+    }
+    inferDefaultSchemas(sorted, sql, sqlSources);
+    for (EntityDraft d : sorted) {
+      d.defaultSchema(defaultSchema(d.datasource));
       if (d.isView == null && d.table != null && isView(d)) {
         d.isView = true;
       }
     }
     unreferenced(sorted);
     List<SqlAccess> accesses = new ArrayList<>();
-    for (SqlDraft s : sql) {
-      accesses.add(sqlAccess(s));
+    for (int i = 0; i < sql.size(); i++) {
+      accesses.add(sqlAccess(sql.get(i), sqlSources.get(i)));
     }
     List<Relation> rels = new ArrayList<>();
     for (Relation r : relations) {
@@ -633,7 +646,7 @@ public final class DatasourceResolver {
 
   // ---------------------------------------------------------------- SQL
 
-  private SqlAccess sqlAccess(SqlDraft draft) {
+  private String sqlDatasourceOrWarn(SqlDraft draft) {
     SqlAccess a = draft.access();
     String ds = sqlDatasource(a, draft.hint());
     if (ds == null && byId.size() > 1) {
@@ -641,9 +654,71 @@ public final class DatasourceResolver {
           + (a.caller() != null ? a.caller() : draft.hint() == null ? "?" : draft.hint().owner())
           + jdbiReason(a, draft.hint()) + " (" + String.join(", ", byId.keySet()) + ")", a.source());
     }
-    Datasource d = ds == null ? null : byId.get(ds);
-    List<SqlTable> tables = withDefaultSchema(a.tables(), d == null ? null : d.defaultSchema());
+    return ds;
+  }
+
+  private SqlAccess sqlAccess(SqlDraft draft, String ds) {
+    SqlAccess a = draft.access();
+    List<SqlTable> tables = withDefaultSchema(a.tables(), defaultSchema(ds));
     return new SqlAccess(a.id(), a.origin(), ds, a.sql(), tables, a.parsed(), a.caller(), a.source());
+  }
+
+  /** Schéma par défaut d'une source : celui de la configuration, sinon celui déduit du SQL ; null sinon. */
+  private String defaultSchema(String datasource) {
+    Datasource ds = datasource == null ? null : byId.get(datasource);
+    if (ds == null) {
+      return null;
+    }
+    return ds.defaultSchema() != null ? ds.defaultSchema() : inferredSchemas.get(datasource);
+  }
+
+  /**
+   * Schéma par défaut d'une source qui n'en déclare pas (valeur fournie par un profil ou au
+   * déploiement), déduit du SQL de cette source : les tables de ses entités sans schéma explicite
+   * que le SQL préfixe ont un seul schéma en commun. {@code DEFAULT_SCHEMA_INFERRED} (info) le signale.
+   */
+  private void inferDefaultSchemas(List<EntityDraft> entities, List<SqlDraft> sql, List<String> sources) {
+    for (Datasource ds : byId.values()) {
+      if (ds.defaultSchema() != null) {
+        continue;
+      }
+      Set<String> tables = new TreeSet<>();
+      for (EntityDraft d : entities) {
+        if (ds.id().equals(d.datasource) && d.table != null && d.schema == null) {
+          tables.add(d.table.toLowerCase(Locale.ROOT));
+        }
+      }
+      Map<String, Set<String>> schemasByTable = new TreeMap<>();
+      Map<String, String> spelling = new HashMap<>();
+      for (int i = 0; i < sql.size(); i++) {
+        if (!ds.id().equals(sources.get(i))) {
+          continue;
+        }
+        for (SqlTable t : sql.get(i).access().tables()) {
+          String name = t.name().toLowerCase(Locale.ROOT);
+          if (t.schema() != null && tables.contains(name)) {
+            String schema = t.schema().toLowerCase(Locale.ROOT);
+            schemasByTable.computeIfAbsent(name, k -> new TreeSet<>()).add(schema);
+            spelling.putIfAbsent(schema, t.schema());
+          }
+        }
+      }
+      Set<String> common = null;
+      for (Set<String> schemas : schemasByTable.values()) {
+        if (common == null) {
+          common = new TreeSet<>(schemas);
+        } else {
+          common.retainAll(schemas);
+        }
+      }
+      if (common != null && common.size() == 1) {
+        String schema = spelling.get(common.iterator().next());
+        inferredSchemas.put(ds.id(), schema);
+        ctx.diagnostics().info("DEFAULT_SCHEMA_INFERRED", "Schéma par défaut de la source " + ds.id()
+            + " déduit du SQL : " + schema + " (tables " + String.join(", ", schemasByTable.keySet()) + ")",
+            ds.source());
+      }
+    }
   }
 
   /** Pourquoi un SQL JDBI n'est pas rattaché : bean Jdbi nommé mais défini hors du dépôt, ou inconnu. */
@@ -655,6 +730,34 @@ public final class DatasourceResolver {
       return " : bean Jdbi « " + h.bean() + " » défini hors du dépôt";
     }
     return h == null || h.bean() == null ? " : aucun bean Jdbi déclaré dans le dépôt ne crée cette interface" : "";
+  }
+
+  /**
+   * Source d'un bean Jdbi {@code <x>Jdbi} défini hors du dépôt (bibliothèque), d'après son nom : bean
+   * {@code <x>DataSource} du dépôt, sinon source d'identifiant {@code <x>}, sinon unique source du type
+   * {@code <x>} ({@code postgresql}, {@code db400}/{@code as400} → {@code db2}…) ; null sinon.
+   */
+  private String externalJdbi(String bean) {
+    if (bean.length() <= JDBI.length() || !bean.toLowerCase(Locale.ROOT).endsWith("jdbi")) {
+      return null;
+    }
+    String base = bean.substring(0, bean.length() - JDBI.length());
+    Bean ds = beansByName.get(base + DATASOURCE);
+    if (ds != null && ds.family().equals(DATASOURCE)) {
+      String id = datasourceOf(ds);
+      if (id != null) {
+        return id;
+      }
+    }
+    for (String id : byId.keySet()) {
+      if (id.equalsIgnoreCase(base)) {
+        return id;
+      }
+    }
+    String key = base.toLowerCase(Locale.ROOT);
+    String kind = KIND_ALIASES.getOrDefault(key, key);
+    List<String> ofKind = byId.values().stream().filter(d -> kind.equals(d.kind())).map(Datasource::id).toList();
+    return ofKind.size() == 1 ? ofKind.get(0) : null;
   }
 
   private String sqlDatasource(SqlAccess a, DatasourceHint h) {
@@ -674,9 +777,10 @@ public final class DatasourceResolver {
     }
     if (origin.equals(SqlExtractor.JDBI)) {
       // Pas d'auto-configuration de Jdbi : seul un bean Jdbi déclaré dans le dépôt rattache le SQL. Un bean
-      // nommé mais défini ailleurs (bibliothèque) laisse la source inconnue plutôt que la DataSource principale.
+      // nommé mais défini ailleurs (bibliothèque) n'est rattaché que par son nom, jamais à la DataSource
+      // principale par défaut.
       if (h != null && h.bean() != null) {
-        return null;
+        return externalJdbi(h.bean());
       }
       Bean b = beans.stream().anyMatch(x -> x.family().equals(JDBI)) ? byFamily(JDBI, null) : null;
       return b == null ? null : datasourceOf(b);
@@ -750,11 +854,11 @@ public final class DatasourceResolver {
       return r;
     }
     EntityDraft from = drafts.values().stream().filter(d -> d.id.equals(r.fromEntity())).findFirst().orElse(null);
-    Datasource ds = from == null || from.datasource == null ? null : byId.get(from.datasource);
-    if (ds == null || ds.defaultSchema() == null) {
+    String schema = from == null ? null : defaultSchema(from.datasource);
+    if (schema == null) {
       return r;
     }
-    return r.withJoinTable(new TableRef(ds.defaultSchema(), jt.name()));
+    return r.withJoinTable(new TableRef(schema, jt.name()));
   }
 
   /**

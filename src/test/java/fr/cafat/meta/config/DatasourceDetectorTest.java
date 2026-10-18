@@ -194,4 +194,25 @@ class DatasourceDetectorTest {
     assertThat(DatasourceDetector.idFor("app.gpp.datasource")).isEqualTo("gpp");
     assertThat(DatasourceDetector.idFor("db.jdbc")).isEqualTo("db.jdbc");
   }
+
+  @Test
+  void bibliothequeAs400SousLaFauteLibrairiesEtSansSuffixeDEnvironnement() {
+    Config c = config(
+        "spring.as400.datasource.jdbcUrl", "jdbc:as400://h;librairies=${as400.schema.MGENCLI};prompt=false",
+        "as400.schema.MGENCLI", "MGENCLI${as400.env-suffix:}",
+        "as400.env-suffix", "DEV",
+        "spring.pg.datasource.jdbcUrl", "jdbc:postgresql://pg/x?currentSchema=sgencli_dev");
+    // valeur d'une clé *.env-suffix retirée ; PostgreSQL non concerné
+    List<Datasource> all = DatasourceDetector.detect(c, List.of(), null).stream().map(Detected::datasource).toList();
+    assertThat(byId(all, "as400").defaultSchema()).isEqualTo("MGENCLI");
+    assertThat(byId(all, "pg").defaultSchema()).isEqualTo("sgencli_dev");
+
+    // suffixe en dur (Spring Cloud Config) : celui de --environment, casse ignorée ; nom jamais vidé
+    Config scc = config("spring.as400.datasource.jdbcUrl", "jdbc:as400://h;librairies=MGENAGTDEV;prompt=false");
+    assertThat(DatasourceDetector.detect(scc, List.of(), "dev").get(0).datasource().defaultSchema())
+        .isEqualTo("MGENAGT");
+    assertThat(DatasourceDetector.detect(scc, List.of(), "val").get(0).datasource().defaultSchema())
+        .isEqualTo("MGENAGTDEV");
+    assertThat(DatasourceDetector.withoutSuffix("DEV", List.of("DEV"))).isEqualTo("DEV");
+  }
 }

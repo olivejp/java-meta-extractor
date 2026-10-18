@@ -131,6 +131,7 @@ public final class InheritanceResolver {
     if ("TABLE_PER_CLASS".equals(strategy) || ("JOINED".equals(strategy) && dc == null)) {
       return null;
     }
+    NamingStrategy naming = this.naming.forClass(d.className);
     String column = naming.explicit(str(dc, "name"));
     if (column == null) {
       column = naming.explicit("DTYPE");
@@ -222,7 +223,7 @@ public final class InheritanceResolver {
           } else if ("TABLE_PER_CLASS".equals(strategy)) {
             x = x.table() == null || x.table().equals(p.table) ? x.withTable(ownTable) : x;
           }
-          x = override(x, d.classOverrides.get(x.field()));
+          x = override(x, d.classOverrides.get(x.field()), naming.forClass(d.className));
         }
         out.add(x);
       }
@@ -254,7 +255,7 @@ public final class InheritanceResolver {
   }
 
   /** Surcharge {@code @AttributeOverride} de niveau classe appliquée à une colonne héritée. */
-  private Column override(Column c, CtAnnotation<?> col) {
+  private Column override(Column c, CtAnnotation<?> col, NamingStrategy naming) {
     if (col == null || c.inheritedFrom() == null) {
       return c;
     }

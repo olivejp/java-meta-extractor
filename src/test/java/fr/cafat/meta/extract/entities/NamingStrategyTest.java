@@ -36,4 +36,14 @@ class NamingStrategyTest {
     assertThat(custom.implicit("nom")).isNull();
     assertThat(custom.explicit("NOM")).isEqualTo("NOM");
   }
+
+  @Test
+  void strategieParPaquet() {
+    NamingStrategy n = NamingStrategy.springBoot().withPackages(java.util.Map.of(
+        "fr.x.db2", NamingStrategy.jpa(), "fr.x.db2.vues", NamingStrategy.springBoot()));
+    assertThat(n.forClass("fr.x.db2.Adresse").explicit("ADR_ADRESSE")).isEqualTo("ADR_ADRESSE");
+    assertThat(n.forClass("fr.x.db2.vues.Vue").explicit("V_VUE")).isEqualTo("v_vue");
+    assertThat(n.forClass("fr.x.db2bis.Autre").explicit("AUTRE")).isEqualTo("autre");
+    assertThat(n.forClass(null)).isSameAs(n);
+  }
 }

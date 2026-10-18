@@ -37,7 +37,9 @@ public final class RelationExtractor {
       "OneToMany", "ONE_TO_MANY", "ManyToMany", "MANY_TO_MANY", "ElementCollection", "ELEMENT_COLLECTION");
 
   private final ExtractionContext ctx;
-  private final NamingStrategy naming;
+  private final NamingStrategy base;
+  /** Stratégie de l'entité en cours (celle de sa fabrique d'EntityManager s'il y a lieu). */
+  private NamingStrategy naming;
   private final Map<String, EntityDraft> drafts;
   private final Set<Association> declared = Collections.newSetFromMap(new IdentityHashMap<>());
 
@@ -50,7 +52,8 @@ public final class RelationExtractor {
    */
   public RelationExtractor(ExtractionContext ctx, Map<String, EntityDraft> drafts) {
     this.ctx = ctx;
-    this.naming = ctx.naming();
+    this.base = ctx.naming();
+    this.naming = base;
     this.drafts = drafts;
   }
 
@@ -66,6 +69,7 @@ public final class RelationExtractor {
   public List<Relation> extract() {
     List<Relation> out = new ArrayList<>();
     for (EntityDraft d : drafts.values()) {
+      naming = base.forClass(d.className);
       if (EntityDraft.MAPPED_SUPERCLASS.equals(d.kind)) {
         for (Association a : d.associations()) {
           declare(d, d, a);

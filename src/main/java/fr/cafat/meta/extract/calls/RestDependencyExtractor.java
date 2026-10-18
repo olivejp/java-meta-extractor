@@ -8,6 +8,8 @@ import fr.cafat.meta.model.Call;
 import fr.cafat.meta.model.RestDependency;
 import fr.cafat.meta.model.RestDependencyPath;
 import fr.cafat.meta.model.Source;
+import fr.cafat.meta.spoon.PartialString;
+import fr.cafat.meta.spoon.ValueEval;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -58,6 +61,8 @@ public final class RestDependencyExtractor {
   private static final Pattern KEY = Pattern.compile("^" + PREFIX_RE + "\\.([^.]+)\\.(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern REFERENCE = Pattern.compile(
       PREFIX_RE + "\\.([A-Za-z0-9_-]+)\\.(?:service|version|type|path\\.([^}]+))\\}", Pattern.CASE_INSENSITIVE);
+  private static final Pattern PATH_REFERENCE = Pattern.compile(
+      "\\$\\{" + PREFIX_RE + "\\.([A-Za-z0-9_-]+)\\.path\\.", Pattern.CASE_INSENSITIVE);
   private static final Pattern HOST_KEY = Pattern.compile(
       "^" + PREFIX_RE + "\\.(?:[A-Za-z0-9_-]+\\.host|host\\.[A-Za-z0-9_-]+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern APP_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]*");
@@ -172,6 +177,175 @@ public final class RestDependencyExtractor {
   static String referenced(String rawUrl) {
     Matcher m = REFERENCE.matcher(rawUrl == null ? "" : rawUrl);
     return m.find() ? m.group(2) : null;
+  }
+
+  /**
+   * Évaluation des appels qui désignent une dépendance par une constante et l'un de ses chemins par
+   * une clé, quelle que soit la classe utilitaire qui lit la configuration
+   * ({@code urlConfig.getUrl("s-gen-gpp", "personne-physique.nir")}, la dépendance étant lue dans une
+   * {@code Map} de {@code @ConfigurationProperties} que l'évaluation statique ne sait pas suivre).
+   *
+   * @param config configuration effective
+   * @return évaluation, voir {@link #urlTemplate} ; null si la configuration ne déclare aucune dépendance
+   */
+  public static ValueEval.KeyedCall keyedCall(Config config) {
+    boolean used = config.entries().stream().anyMatch(e -> KEY.matcher(e.key()).matches());
+    return used ? (name, pathKey) -> urlTemplate(config, name, pathKey) : null;
+  }
+
+  /**
+   * URL brute d'un chemin, en espaces réservés de la convention :
+   * {@code ${hôte(type)}${…<nom>.service}${…<nom>.version}${…<nom>.path.<cle>}}. Chaque clé est prise
+   * sous le préfixe qui la déclare, {@code cafat.config} d'abord. L'hôte est omis si le type est
+   * inconnu ; s'il n'est pas déclaré, sa clé reste citée (manquante, sans effet sur la cible). Une clé
+   * de chemin non déclarée, ou calculée à l'exécution, reste citée telle quelle, morceaux inconnus
+   * compris ({@code ${…path.desserte-{name}}}) : voir {@link #alternatives}.
+   *
+   * @param config configuration effective
+   * @param name nom de la dépendance (ex. {@code s-gen-gpp})
+   * @param pathKey clé du chemin sous {@code path} (ex. {@code personne-physique.nir}), éventuellement
+   *     partielle
+   * @return URL brute ; null si {@code name} n'est pas une dépendance déclarée (sans {@code service})
+   */
+  static PartialString urlTemplate(Config config, String name, PartialString pathKey) {
+    ConfigEntry service = declared(config, name, "service");
+    if (service == null) {
+      return null;
+    }
+    ConfigEntry version = declared(config, name, "version");
+    ConfigEntry type = declared(config, name, "type");
+    String typeValue = type == null ? null : config.get(type.key());
+    StringBuilder sb = new StringBuilder();
+    if (typeValue != null && APP_NAME.matcher(typeValue).matches()) {
+      sb.append("${").append(hostKey(config, service.key(), typeValue)).append('}');
+    }
+    sb.append("${").append(service.key()).append('}');
+    if (version != null) {
+      sb.append("${").append(version.key()).append('}');
+    }
+    String key = pathKey.valueOrNull();
+    ConfigEntry path = key == null ? null : declared(config, name, PATH + key);
+    if (path != null) {
+      return PartialString.lit(sb.append("${").append(path.key()).append('}').toString());
+    }
+    String base = service.key().substring(0, service.key().length() - ".service".length());
+    return PartialString.concat(PartialString.lit(sb.append("${").append(base).append('.').append(PATH).toString()),
+        pathKey, PartialString.lit("}"));
+  }
+
+  /** Chemins possibles d'une URL dont la clé de chemin est calculée à l'exécution. */
+  record Alternatives(String key, List<String> keys, List<String> urls) {
+  }
+
+  /**
+   * Développe la première référence {@code ${…<nom>.path.<cle>}} dont la clé contient des morceaux
+   * inconnus ({@code desserte-{name}}) en une URL par chemin déclaré de la dépendance compatible :
+   * chaque morceau inconnu vaut un mot ({@code [A-Za-z0-9_]+}, une valeur d'enum par exemple), les
+   * morceaux connus sont gardés. Une clé sans morceau connu n'est pas développée.
+   *
+   * @param config configuration effective
+   * @param rawUrl URL brute d'un appel
+   * @return clé citée, clés compatibles et URL correspondantes ; null si rien à développer
+   */
+  static Alternatives alternatives(Config config, String rawUrl) {
+    Matcher m = PATH_REFERENCE.matcher(rawUrl == null ? "" : rawUrl);
+    while (m.find()) {
+      int end = closing(rawUrl, m.start() + 1);
+      if (end < 0) {
+        return null;
+      }
+      String key = rawUrl.substring(m.end(), end);
+      if (!key.contains("{")) {
+        continue;
+      }
+      String[] known = key.split("\\{[^{}]*\\}", -1);
+      if (String.join("", known).replaceAll("[^A-Za-z0-9]", "").isEmpty()) {
+        return null;
+      }
+      StringBuilder re = new StringBuilder();
+      for (int i = 0; i < known.length; i++) {
+        re.append(i == 0 ? "" : "[A-Za-z0-9_]+").append(Pattern.quote(known[i]));
+      }
+      Pattern compatible = Pattern.compile(re.toString(), Pattern.CASE_INSENSITIVE);
+      Map<String, String> byKey = new TreeMap<>();
+      for (String prefix : PREFIXES) {
+        for (ConfigEntry e : config.entries()) {
+          Matcher k = KEY.matcher(e.key());
+          if (k.matches() && prefix(k.group(1)).equals(prefix)
+              && Config.normalize(k.group(2)).equals(Config.normalize(m.group(2)))
+              && k.group(3).toLowerCase(Locale.ROOT).startsWith(PATH)
+              && compatible.matcher(k.group(3).substring(PATH.length())).matches()) {
+            byKey.put(Config.normalize(k.group(3).substring(PATH.length())), e.key());
+          }
+        }
+      }
+      if (byKey.isEmpty()) {
+        return null;
+      }
+      List<String> keys = new ArrayList<>();
+      List<String> urls = new ArrayList<>();
+      for (String full : new TreeSet<>(byKey.values())) {
+        keys.add(full.substring(full.toLowerCase(Locale.ROOT).indexOf("." + PATH) + 1 + PATH.length()));
+        urls.add(rawUrl.substring(0, m.start()) + "${" + full + "}" + rawUrl.substring(end + 1));
+      }
+      return new Alternatives(key, keys, urls);
+    }
+    return null;
+  }
+
+  /**
+   * Vrai si une clé de chemin de la convention ({@code …<nom>.path.<cle>}) manque : le chemin de
+   * l'appel est alors inconnu.
+   *
+   * @param missing clés manquantes d'une résolution
+   * @return true si l'une est une clé de chemin de la convention
+   */
+  static boolean pathMissing(Set<String> missing) {
+    for (String k : missing) {
+      Matcher m = KEY.matcher(k);
+      if (m.matches() && m.group(3).toLowerCase(Locale.ROOT).startsWith(PATH)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Index de l'accolade fermante correspondant à celle en {@code open}. */
+  private static int closing(String s, int open) {
+    int level = 0;
+    for (int k = open; k < s.length(); k++) {
+      char c = s.charAt(k);
+      if (c == '{') {
+        level++;
+      } else if (c == '}' && --level == 0) {
+        return k;
+      }
+    }
+    return -1;
+  }
+
+  /** Entrée {@code <préfixe>.<nom>.<suffixe>}, {@code cafat.config} d'abord ; null si absente. */
+  private static ConfigEntry declared(Config config, String name, String suffix) {
+    return config.firstEntry(PREFIXES.get(1) + "." + name + "." + suffix,
+        PREFIXES.get(0) + "." + name + "." + suffix);
+  }
+
+  /**
+   * Clé de l'hôte d'un type : celle déclarée, préfixe de la dépendance d'abord ; sinon la forme de ce
+   * préfixe ({@code <type>.host} ou {@code host.<type>}).
+   */
+  private static String hostKey(Config config, String serviceKey, String type) {
+    String own = serviceKey.toLowerCase(Locale.ROOT).startsWith("cafat.config") ? PREFIXES.get(1) : PREFIXES.get(0);
+    List<String> keys = new ArrayList<>();
+    for (String p : own.equals(PREFIXES.get(0)) ? PREFIXES : PREFIXES.reversed()) {
+      keys.add(p + "." + type + ".host");
+      keys.add(p + ".host." + type);
+    }
+    ConfigEntry e = config.firstEntry(keys.toArray(String[]::new));
+    if (e != null) {
+      return e.key();
+    }
+    return own.equals(PREFIXES.get(0)) ? own + "." + type + ".host" : own + ".host." + type;
   }
 
   /**

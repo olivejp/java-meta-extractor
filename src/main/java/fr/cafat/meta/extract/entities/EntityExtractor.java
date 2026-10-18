@@ -34,7 +34,9 @@ public final class EntityExtractor {
   private static final int MAX_EMBED_DEPTH = 6;
 
   private final ExtractionContext ctx;
-  private final NamingStrategy naming;
+  private final NamingStrategy base;
+  /** Stratégie de la classe en cours (celle de sa fabrique d'EntityManager s'il y a lieu). */
+  private NamingStrategy naming;
 
   /**
    * Extracteur des classes persistantes de l'application.
@@ -43,7 +45,8 @@ public final class EntityExtractor {
    */
   public EntityExtractor(ExtractionContext ctx) {
     this.ctx = ctx;
-    this.naming = ctx.naming();
+    this.base = ctx.naming();
+    this.naming = base;
   }
 
   /**
@@ -60,6 +63,7 @@ public final class EntityExtractor {
       }
       EntityDraft d = new EntityDraft(t, ctx.entityId(t.getQualifiedName()), kind, entityName(t, kind),
           ctx.source(t));
+      naming = base.forClass(t.getQualifiedName());
       readTypeLevel(d);
       readAttributes(d);
       drafts.put(d.className, d);

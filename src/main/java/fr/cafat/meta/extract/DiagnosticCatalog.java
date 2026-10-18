@@ -106,6 +106,10 @@ public final class DiagnosticCatalog {
     add("ENTITY_UNREFERENCED", "entité jamais utilisée dans le code", Origin.CODE,
         "rien ne manque ; la source de données de l'entité est déduite sans appelant",
         "rien à faire, ou code mort à signaler à l'équipe du dépôt");
+    add("DEFAULT_SCHEMA_INFERRED", "schéma par défaut déduit du SQL", Origin.RUNTIME,
+        "le schéma par défaut de la source n'est pas dans la configuration lue (profil, déploiement) : "
+            + "celui que le SQL donne aux tables des entités est appliqué aux tables sans schéma",
+        "rien à faire ; vérifier le schéma cité si la source a plusieurs schémas");
     add("DATASOURCE_AMBIGUOUS", "source de données indéterminée", Origin.CODE,
         "l'entité ou le SQL cité n'est rattaché à aucune base",
         "trouver quelle datasource sert ce code (package scanné, @Qualifier, unité de persistance) ; "
@@ -120,6 +124,10 @@ public final class DiagnosticCatalog {
         "le SQL est passé par une variable dont la valeur n'est pas calculable dans le code : "
             + "relever la requête à la main à l'emplacement cité");
     // REST
+    add("URL_ALTERNATIVES", "chemin d'appel REST choisi à l'exécution", Origin.RUNTIME,
+        "un appel est produit pour chaque chemin déclaré compatible : certains ne sont peut-être jamais empruntés",
+        "rien à faire ; si la cartographie doit être exacte, lire dans le code cité la valeur qui choisit "
+            + "le chemin (enum, paramètre)");
     add("URL_UNRESOLVED", "URL d'appel REST non résolue", Origin.RUNTIME,
         "l'appel est gardé sans URL complète ni application cible",
         "vérifier que les propriétés citées « inconnu : … » sont dans application*.yml du dépôt ; "

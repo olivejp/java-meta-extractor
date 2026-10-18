@@ -37,11 +37,36 @@ mvn -B package
 
 Le build produit `target/java-meta-extractor.jar`, un JAR exécutable unique.
 
-Pour l'image Docker :
+### Image Docker pour Airflow
+
+L'image est lancée par Airflow (dépôt `cafat-airflow`). Son tag est la version du `pom.xml` (`<version>`), jamais `dev` ni `latest`. Le jar porte la même version (`--version`).
 
 ```bash
-docker build -t java-meta-extractor:dev .
+scripts/build-image.sh          # image java-meta-extractor:<version du pom>
+scripts/build-image.sh --k3d    # idem, puis import dans le cluster k3d (K3D_CLUSTER, défaut : cafat)
 ```
+
+Le script construit le jar sur le poste (`mvn -B package`, tests compris), puis l'image d'exécution seule à partir de ce jar : sur le réseau CAFAT, l'inspection TLS empêche Maven de télécharger les dépendances dans un `docker build`. Il vérifie ensuite que l'image démarre sans réseau.
+
+Hors du réseau CAFAT, le `Dockerfile` produit la même image en une commande (`mvn package` dans une image Maven, puis la même image d'exécution) : `docker build -t java-meta-extractor:<version du pom> .`
+
+- **Tag** : celui de la Variable Airflow `extraction_images` (types `java-spring` et `java-jboss`). Un nouveau contenu prend une nouvelle version du pom : les pods tirent l'image en `IfNotPresent`, un nœud qui a déjà le tag ne la retélécharge pas. Le script refuse donc de reconstruire un tag existant, sauf version `-SNAPSHOT`. Après chaque nouveau tag, mettre à jour la Variable.
+- **Commande** : Airflow remplace l'`ENTRYPOINT` et lance `java -jar /opt/java-meta-extractor/java-meta-extractor.jar` (`carto_si.extraction.EXTRACTOR_COMMANDS` de `cafat-airflow`). Déplacer le jar impose de mettre à jour `cafat-airflow`.
+- **Base** : l'image doit contenir `sh` et `ls`, utilisés par le pod autour de l'extracteur. Pas d'image *distroless*.
+- **Utilisateur** : `extracteur`, uid 10001, non root.
+
+### Envoi dans k3d
+
+Le nœud du cluster ne voit pas les images de la Docker locale. Il faut les y importer après chaque build (`scripts/build-image.sh --k3d` le fait), et après chaque recréation du cluster (`k3d cluster delete`, nettoyage complet du script d'installation).
+
+```bash
+# Import dans le nœud du cluster cafat
+k3d image import java-meta-extractor:<version> -c cafat
+# Vérification
+docker exec k3d-cafat-server-0 crictl images | grep java-meta-extractor
+```
+
+Avec minikube : `minikube image load java-meta-extractor:<version>`. Une image absente du nœud est cherchée sur docker.io : le pod échoue en `ErrImagePull`.
 
 ## Utiliser
 
@@ -67,7 +92,7 @@ docker run --rm --network none -v /chemin/vers/s-gen-gpp:/repo:ro -v "$PWD/out:/
 | `--profile P[,P…]` | Profils Spring actifs, dans l'ordre, imposés à toutes les applications. Sans cette option : profils déclarés par chaque application (voir « Profils »). |
 | `--config-repo DIR` | Clone local du dépôt Spring Cloud Config, appliqué aux applications clientes (voir « Spring Cloud Config »). |
 | `--config-search-paths C[,C…]` | Répertoires de recherche de ce dépôt, comme `search-paths` du serveur : `{application}`, `{profile}` et `*` acceptés. Défaut : racine seule. |
-| `--environment ENV` | Environnement ciblé (valeur libre : `dev`, `val`…). Inscrit dans `application.environment` et comparé à la branche extraite de `--config-repo`. |
+| `--environment ENV` | Environnement ciblé (valeur libre : `dev`, `val`…). Inscrit dans `application.environment`, comparé à la branche extraite de `--config-repo`, et retiré en suffixe des bibliothèques AS400 (`MGENAGTDEV` → `MGENAGT`). |
 | `--fail-on-warning` | Un diagnostic `warning` donne aussi le code 1. |
 | `--view-schemas S[,S…]` | Schémas dont toutes les tables sont des vues. Défaut : `MGENGPP`. |
 | `--max-warnings N` | Occurrences affichées par code d'avertissement dans le rapport. Défaut : 5. |
@@ -213,10 +238,12 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
 | `RELATION_TARGET_NOT_FOUND` | warning | Cible d'association hors du dépôt. |
 | `NAMING_STRATEGY_UNKNOWN` | warning | Stratégie de nommage Hibernate non reconnue. |
 | `DATASOURCE_AMBIGUOUS` | warning | Entité ou SQL non rattachable à une seule source. |
+| `DEFAULT_SCHEMA_INFERRED` | info | Schéma par défaut d'une source absent de la configuration lue, déduit du SQL de cette source. |
 | `SQL_UNPARSED` | warning | SQL dynamique ou rejeté par JSqlParser. Les tables sont lues par repli lexical. |
 | `SQL_UNRESOLVED` | warning | Texte SQL introuvable (paramètre, valeur calculée). |
 | `ENDPOINT_PATH_UNRESOLVED`, `HTTP_METHOD_UNRESOLVED` | warning | Chemin ou verbe non constant. |
-| `URL_UNRESOLVED` | warning | URL d'appel avec une propriété absente de la configuration (hors hôte d'une dépendance `nc.cafat.rest-dependency`). |
+| `URL_UNRESOLVED` | warning | URL d'appel avec une propriété absente de la configuration (hors hôte d'une dépendance `nc.cafat.rest-dependency`), ou clé de chemin de la convention non déclarée. |
+| `URL_ALTERNATIVES` | info | Clé de chemin `nc.cafat.rest-dependency` calculée à l'exécution : un appel par chemin déclaré compatible. |
 | `DESTINATION_UNRESOLVED` | warning | Destination JMS non constante ou absente. |
 | `XML_UNREADABLE` | warning | Fichier XML (MyBatis, web.xml…) illisible. |
 | `ENTITY_UNREFERENCED` | info | Entité jamais nommée ailleurs dans le code (classe gardée dans la sortie). |
@@ -232,7 +259,8 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
 ## Règles par défaut
 
 - **Valeurs JPA** : seules les valeurs déclarées sont reprises (`length`, `nullable`…), sinon `null`. Les défauts de la spécification ne sont jamais inventés.
-- **Stratégie de nommage** : en Spring Boot, `snake_case` en minuscules, sauf stratégie déclarée. En JPA ou JBoss, nom tel quel.
+- **Stratégie de nommage** : en Spring Boot, `snake_case` en minuscules, sauf stratégie déclarée. En JPA ou JBoss, nom tel quel. Une fabrique d'EntityManager déclarée à la main (`new LocalContainerEntityManagerFactoryBean()` dans une méthode `@Bean`, sans `EntityManagerFactoryBuilder`) ne reçoit pas les stratégies de Spring Boot : les classes de ses paquets (`setPackagesToScan`) gardent les noms tels qu'écrits et les noms implicites JPA, sauf `hibernate.physical_naming_strategy` passé à la fabrique dans sa classe.
+- **Casse des noms** : tables, schémas et colonnes non entre guillemets sont ramenés à la casse de leur base, comme dans son catalogue : minuscules en PostgreSQL, majuscules en DB2 ; autres bases inchangées. Entités et SQL d'une même base se comparent ainsi directement.
 - **Rattachement d'une entité à sa source de données**, dans l'ordre :
   1. classe listée dans une unité de persistance ;
   2. paquet scanné par une fabrique d'EntityManager (`packages(..)`, `setPackagesToScan`) ;
@@ -247,12 +275,13 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
   6. bean `@Primary` ou unique de la famille (JdbcTemplate, NamedParameterJdbcTemplate, EntityManagerFactory, MyBatis) ;
   7. DataSource `@Primary` ou unique si la famille n'a aucun bean déclaré (auto-configuration Spring Boot).
 
-  Pour le SQL JDBI, l'interface est reliée au bean `Jdbi` qui la crée : méthode `@Bean` du dépôt avec un seul paramètre `Jdbi` (son `@Qualifier`, sinon son nom), qui rend l'interface ou appelle `jdbi.onDemand(X.class)` / `attach`. Ce bean, s'il est déclaré dans le dépôt, est remonté jusqu'à sa DataSource ; s'il est défini ailleurs (bibliothèque), la source reste `null` avec `DATASOURCE_AMBIGUOUS` qui nomme le bean. Sans fabrique visible : l'unique bean `Jdbi` du dépôt. Jamais la DataSource principale, Jdbi n'ayant pas d'auto-configuration.
+  Pour le SQL JDBI, l'interface est reliée au bean `Jdbi` qui la crée : méthode `@Bean` du dépôt avec un seul paramètre `Jdbi` (son `@Qualifier`, sinon son nom), qui rend l'interface ou appelle `jdbi.onDemand(X.class)` / `attach`. Ce bean, s'il est déclaré dans le dépôt, est remonté jusqu'à sa DataSource. S'il est défini ailleurs (bibliothèque), il est rattaché par son nom `<x>Jdbi` : bean `<x>DataSource` du dépôt (`postgresqlJdbi` → `postgresqlDataSource`), sinon source d'identifiant `<x>`, sinon unique source du type `<x>` (`db400Jdbi` → seule source DB2) ; à défaut la source reste `null` avec `DATASOURCE_AMBIGUOUS` qui nomme le bean. Sans fabrique visible : l'unique bean `Jdbi` du dépôt. Jamais la DataSource principale, Jdbi n'ayant pas d'auto-configuration.
 - **Type de base** : lu dans l'URL JDBC, sinon dans le pilote (`driver-class-name`) ou le dialecte (`database-platform`, `hibernate.dialect`) de la source ou de son préfixe JPA voisin (`spring.x.jpa` pour `spring.x.datasource`).
 - **SQL natif** : `{h-schema}`, `{h-catalog}` et `{alias.*}` sont retirés avant l'analyse ; la table reçoit ensuite le schéma par défaut.
 - **SQL JDBI** (origine `jdbi`, JDBI 3 et JDBI 2) : valeur de `@SqlQuery`, `@SqlUpdate`, `@SqlBatch`, `@SqlCall`, `@SqlScript` (répétée ou dans `@SqlScripts`, un accès par script), en Java comme en Kotlin. Les paramètres `:x`, `:bean.champ` et les attributs `<x>` sont remplacés par `?` pour l'analyse, le texte gardé est l'original. Sans valeur, le SQL est lu par JDBI dans un fichier (localisateur) : `SQL_UNRESOLVED`.
 - **Accès en écriture** : `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `TRUNCATE`, `UPSERT`, et les ordres de structure `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE` / `DROP VIEW`.
 - **Destination JMS injectée** (`Queue`, `Topic`, `Destination`) : bean `@Bean` désigné par `@Qualifier`, sinon du nom du champ, sinon seul bean de type compatible.
+- **Propriétés d'un bean `@ConfigurationProperties(P)`** : une chaîne de getters (`config.getPrivateQueue().getName()`) et une expression SpEL simple (`#{config.privateQueue.name}`, bean nommé par son stéréotype ou par sa classe) valent `${P.private-queue.name}`, résolu par la configuration. Destinations JMS et URL d'appel en profitent ; une expression SpEL plus complexe reste non résolue.
 - **URL d'appel** :
   - les méthodes du dépôt sont dépliées avec leurs arguments, y compris les clés calculées de `Environment.getProperty` (`PREFIXE + service + ".path." + nom`) ;
   - un format lu dans la configuration puis passé à `String.format` garde ses `%s`/`%d`, qui deviennent `{arg1}`, `{arg2}`… après résolution ;
@@ -282,11 +311,17 @@ Le détail de chaque code (origine, ce qui manque, ce qu'il faut faire) est dans
   ```
 
   - l'URL d'appel vaut `hôte(type) + service + version + path.<clé>` ;
+  - un appel dont le premier argument est une dépendance déclarée et le deuxième une clé de chemin (`urlConfig.getUrl("s-gen-gpp", "personne-physique.nir")`) est reconnu quelle que soit la classe utilitaire, y compris quand elle lit une `Map` de `@ConfigurationProperties` ;
+  - clé de chemin non déclarée : la cible est gardée, `path` vaut `null` et `URL_UNRESOLVED` cite la clé ;
+  - clé calculée à l'exécution (`"desserte-" + type.name().toLowerCase()`) : un appel par chemin déclaré compatible (`desserte-bp`, `desserte-domicile`), chaque morceau inconnu valant un mot, avec `URL_ALTERNATIVES`. Une clé sans aucun morceau connu, ou choisie par un ternaire, reste non résolue ;
   - chaque dépendance est exportée dans `rest_dependencies` : `config_prefix` (forme utilisée), `target_app`, `type`, `base_path` (`service + version`), `host` et ses chemins (`template` tel qu'écrit, `path` complet comparable aux endpoints) ; une dépendance déclarée sous les deux formes est fusionnée, `cafat.config` l'emportant ;
   - l'application cible est le dernier segment de `service` sans `/` ni `-` de bord (`/s-gen-geo-` → `s-gen-geo`), sinon le nom de la dépendance. Elle est reprise dans `target_app` de chaque appel qui cite la dépendance, à la place de l'hôte (la passerelle) ;
   - un hôte absent ne donne pas `URL_UNRESOLVED` : `resolved_url` reste `null`, le chemin et la cible sont connus ;
   - `called` (dépendance ou chemin) vaut `true` si l'URL brute d'un appel cite la clé ; une entrée sans `service` ni `path` (`springboot.host`, `host`) n'est pas une dépendance.
 - **Schéma par défaut** : celui de la source de données (`currentSchema` PostgreSQL, première bibliothèque DB2 `libraries=`, `hibernate.default_schema`). Il s'applique aux tables sans schéma : entités, tables secondaires, tables de jointure et SQL.
+  - DB2 : la faute `librairies=`, répandue à la CAFAT (applications et dépôt Spring Cloud Config), est lue comme `libraries=`. C'est l'intention des développeurs : le pilote jt400 ignore cette propriété mal orthographiée et prend la liste de bibliothèques du profil utilisateur.
+  - DB2 : la bibliothèque est ramenée à son nom de production, sans le suffixe de l'environnement (`--environment dev` : `MGENCLIDEV` → `MGENCLI`) ni la valeur d'une clé `*.env-suffix`. Une même table garde ainsi son nom d'un environnement à l'autre et `--view-schemas` s'applique partout. `default_schema` de la source porte ce nom ramené.
+  - Schéma absent de la configuration lue (fourni par un profil ou au déploiement) : il est déduit du SQL de la même source quand les tables de ses entités y sont préfixées par un seul schéma commun (`sgengpp.gpp_union`), avec `DEFAULT_SCHEMA_INFERRED`. Ce schéma déduit s'applique aux tables, pas à `default_schema` de la source, qui reste celui de la configuration.
 - **`is_view`** vaut `true` dans trois cas :
   - schéma de vues (`--view-schemas`) ;
   - nom préfixé ou suffixé par `V`, `VW`, `VUE` ou `VIEW` (`V_PERSONNE`, `personne_vw`…), sans tenir compte de la casse ;

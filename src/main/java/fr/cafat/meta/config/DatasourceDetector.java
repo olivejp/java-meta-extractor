@@ -26,7 +26,8 @@ public final class DatasourceDetector {
       "spring.r2dbc", "flyway", "liquibase", "management", "spring.batch", "spring.quartz",
       "spring.session", "spring.integration");
   private static final Pattern CURRENT_SCHEMA = Pattern.compile("(?i)[?&;:]currentSchema=([^;&]+)");
-  private static final Pattern AS400_LIBRARIES = Pattern.compile("(?i)[;:]libraries=([^;&]+)");
+  /** {@code libraries=}, et la faute {@code librairies=} répandue à la CAFAT (ignorée par le pilote). */
+  private static final Pattern AS400_LIBRARIES = Pattern.compile("(?i)[;:]librai?ries=([^;&]+)");
 
   /** Source de données détectée et ce qui permet d'y rattacher des entités. */
   public record Detected(Datasource datasource, String configPrefix, PersistenceUnit unit) {
@@ -48,6 +49,63 @@ public final class DatasourceDetector {
    *     liste vide si aucune
    */
   public static List<Detected> detect(Config config, List<PersistenceUnit> units) {
+    return detect(config, units, null);
+  }
+
+  /**
+   * Sources de données, schéma DB2 (bibliothèque AS400) ramené à son nom de production : sans le
+   * suffixe de l'environnement ({@code MGENCLIDEV} → {@code MGENCLI} pour {@code dev}), ni celui d'une
+   * clé {@code *.env-suffix} de la configuration.
+   *
+   * @param config configuration effective de l'unité
+   * @param units unités de persistance des persistence.xml
+   * @param environment environnement ciblé ({@code --environment}) ; null accepté
+   * @return voir {@link #detect(Config, List)}
+   */
+  public static List<Detected> detect(Config config, List<PersistenceUnit> units, String environment) {
+    List<String> suffixes = envSuffixes(config, environment);
+    List<Detected> out = new ArrayList<>();
+    for (Detected d : detectRaw(config, units)) {
+      Datasource ds = d.datasource();
+      String schema = "db2".equals(ds.kind()) ? withoutSuffix(ds.defaultSchema(), suffixes) : ds.defaultSchema();
+      out.add(schema == null || schema.equals(ds.defaultSchema()) ? d : new Detected(new Datasource(ds.id(),
+          ds.kind(), ds.jdbcUrl(), ds.jndiName(), schema, ds.configPrefix(), ds.source()), d.configPrefix(), d.unit()));
+    }
+    return out;
+  }
+
+  /** Suffixes d'environnement : {@code --environment} en majuscules, valeurs des clés {@code *.env-suffix}. */
+  private static List<String> envSuffixes(Config config, String environment) {
+    List<String> out = new ArrayList<>();
+    if (environment != null && !environment.isBlank()) {
+      out.add(environment.strip().toUpperCase(Locale.ROOT));
+    }
+    for (ConfigEntry e : config.entries()) {
+      String key = e.key();
+      if (Config.normalize(key.substring(key.lastIndexOf('.') + 1)).equals("envsuffix")) {
+        String v = config.get(key);
+        if (v != null && !v.isBlank() && !out.contains(v.strip().toUpperCase(Locale.ROOT))) {
+          out.add(v.strip().toUpperCase(Locale.ROOT));
+        }
+      }
+    }
+    return out;
+  }
+
+  /** Schéma sans le premier suffixe d'environnement qui le termine (casse ignorée, nom non vidé). */
+  static String withoutSuffix(String schema, List<String> suffixes) {
+    if (schema == null) {
+      return null;
+    }
+    for (String s : suffixes) {
+      if (schema.length() > s.length() && schema.toUpperCase(Locale.ROOT).endsWith(s)) {
+        return schema.substring(0, schema.length() - s.length());
+      }
+    }
+    return schema;
+  }
+
+  private static List<Detected> detectRaw(Config config, List<PersistenceUnit> units) {
     Map<String, ConfigEntry> urlByPrefix = new LinkedHashMap<>();
     Map<String, ConfigEntry> jndiByPrefix = new LinkedHashMap<>();
     for (ConfigEntry e : config.entries()) {

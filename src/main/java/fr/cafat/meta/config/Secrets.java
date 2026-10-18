@@ -18,6 +18,9 @@ public final class Secrets {
           + "access_token|api[-_]?key|apikey|key|credentials?|client[-_]?secret)(\\s*=\\s*)([^;&#,\\s]*)");
   private static final Pattern USER_INFO = Pattern.compile("^([a-zA-Z][a-zA-Z0-9+.:-]*://)([^/@?#]*)@");
   /** Forme Oracle sans « :// » : {@code jdbc:oracle:thin:u/p@hôte}. */
+  /** Chemin d'une dépendance REST de la convention CAFAT : modèle d'URL, jamais un secret. */
+  private static final Pattern REST_DEPENDENCY_PATH = Pattern.compile(
+      "(?i)^(nc\\.cafat|cafat\\.config)\\.rest[-_]?dependency\\.[^.]+\\.path\\..+$");
   private static final Pattern ORACLE_CREDENTIALS = Pattern.compile("(?i)^(jdbc:oracle:[a-z0-9]+:)[^@/:]+/[^@]*@");
 
   private Secrets() {
@@ -28,10 +31,11 @@ public final class Secrets {
    *
    * @param key clé de configuration ou nom de propriété ; null accepté
    * @return true si le dernier segment (insensible à la casse, tirets et soulignés ignorés) vaut
-   *     {@code user}, {@code login}… ou contient {@code password}, {@code token}… ; false si null
+   *     {@code user}, {@code login}… ou contient {@code password}, {@code token}… ; false si null ou
+   *     chemin de dépendance REST ({@code nc.cafat.rest-dependency.<nom>.path.assure.reset-password})
    */
   public static boolean isSensitiveKey(String key) {
-    if (key == null) {
+    if (key == null || REST_DEPENDENCY_PATH.matcher(key).matches()) {
       return false;
     }
     String last = key.substring(key.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT)

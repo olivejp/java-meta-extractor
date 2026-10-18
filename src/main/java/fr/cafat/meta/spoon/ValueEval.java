@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import spoon.reflect.code.BinaryOperatorKind;
@@ -69,7 +71,15 @@ public final class ValueEval {
   private static final Set<String> ENVIRONMENTS = Set.of("Environment", "ConfigurableEnvironment",
       "PropertyResolver", "StandardEnvironment", "AbstractEnvironment");
 
+  private static final Set<String> SPRING_STEREOTYPES = Set.of("org.springframework.stereotype",
+      "org.springframework.context.annotation");
+  private static final Pattern SPEL_PROPERTY = Pattern.compile(
+      "#\\{\\s*([A-Za-z_][A-Za-z0-9_]*)((?:\\.[A-Za-z_][A-Za-z0-9_]*)+)\\s*}");
+
   private final TypeIndex index;
+  private final KeyedCall keyedCall;
+  /** Bean {@code @ConfigurationProperties} du dépôt : nom de bean → préfixe (calculé à la demande). */
+  private Map<String, String> propertiesBeans;
   // Collections par identité : l'égalité des éléments Spoon est structurelle (deux champs
   // « private final String url; » de classes différentes sont égaux) et son hashCode parcourt l'arbre.
   private final Map<CtElement, PartialString> cache = new IdentityHashMap<>();
@@ -80,7 +90,37 @@ public final class ValueEval {
    * @param index types du dépôt, pour retrouver champs et méthodes ; obligatoire
    */
   public ValueEval(TypeIndex index) {
+    this(index, null);
+  }
+
+  /**
+   * Évaluateur sur les types du dépôt, qui reconnaît en plus les appels désignés par leurs arguments.
+   *
+   * @param index types du dépôt, pour retrouver champs et méthodes ; obligatoire
+   * @param keyedCall valeur d'un appel d'après ses deux premiers arguments ; null si aucun
+   */
+  public ValueEval(TypeIndex index, KeyedCall keyedCall) {
     this.index = index;
+    this.keyedCall = keyedCall;
+  }
+
+  /**
+   * Valeur d'un appel d'après ses deux premiers arguments, sans déplier la méthode appelée : la donnée
+   * est dans la configuration, la méthode ne fait que la lire (ex. dépendance REST et clé de chemin de
+   * la convention CAFAT, lues dans une Map de {@code @ConfigurationProperties}).
+   */
+  @FunctionalInterface
+  public interface KeyedCall {
+
+    /**
+     * Valeur de l'appel.
+     *
+     * @param first premier argument, constant
+     * @param second deuxième argument, éventuellement partiel (morceaux inconnus gardés)
+     * @return valeur, espaces réservés de configuration ({@code ${cle}}) admis ; null si l'appel
+     *     n'est pas reconnu
+     */
+    PartialString value(String first, PartialString second);
   }
 
   /** Contexte d'évaluation : profondeur, liaisons des paramètres, déclarations en cours. */
@@ -661,12 +701,130 @@ public final class ValueEval {
         return PartialString.EMPTY;
       }
     }
+    // Getter d'un bean @ConfigurationProperties : config.getPrivateQueue().getName()
+    PartialString property = configurationProperty(inv);
+    if (property != null) {
+      return property;
+    }
+    // Appel désigné par une constante connue de la configuration et une clé
+    PartialString keyed = keyed(args, ctx);
+    if (keyed != null) {
+      return keyed;
+    }
     // Méthode du dépôt : getter ou méthode à return unique
     PartialString inlined = inline(inv, ctx);
     if (inlined != null) {
       return inlined;
     }
     return PartialString.unknown(name);
+  }
+
+  /**
+   * Chaîne de getters sans argument sur un objet dont le type du dépôt porte
+   * {@code @ConfigurationProperties(P)} : {@code ${P.<propriété>.<propriété>}} ; null sinon.
+   */
+  private PartialString configurationProperty(CtInvocation<?> inv) {
+    List<String> path = new ArrayList<>();
+    CtExpression<?> cur = inv;
+    while (cur instanceof CtInvocation<?> i && i.getArguments().isEmpty() && i.getExecutable() != null) {
+      String p = getterProperty(i.getExecutable().getSimpleName());
+      if (p == null) {
+        return null;
+      }
+      path.add(0, p);
+      cur = i.getTarget();
+    }
+    if (path.isEmpty() || cur == null || cur instanceof CtTypeAccess<?> || cur instanceof CtInvocation<?>) {
+      return null;
+    }
+    CtType<?> root = index.resolve(Types.typeOf(cur));
+    String prefix = root == null ? null : configurationPrefix(root);
+    return prefix == null ? null : PartialString.lit("${" + prefix + "." + String.join(".", path) + "}");
+  }
+
+  /** Propriété d'un getter ({@code getPrivateQueue} → {@code private-queue}) ; null sinon. */
+  private static String getterProperty(String method) {
+    String name = method.startsWith("get") && method.length() > 3 && !method.equals("getClass")
+        ? method.substring(3) : method.startsWith("is") && method.length() > 2 ? method.substring(2) : null;
+    return name == null || !Character.isUpperCase(name.charAt(0)) ? null : kebab(decapitalize(name));
+  }
+
+  /** Nom de bean par défaut à la manière de Spring : {@code Config} → {@code config}, {@code URLConfig} inchangé. */
+  private static String decapitalize(String name) {
+    if (name.length() > 1 && Character.isUpperCase(name.charAt(0)) && Character.isUpperCase(name.charAt(1))) {
+      return name;
+    }
+    return Character.toLowerCase(name.charAt(0)) + name.substring(1);
+  }
+
+  /**
+   * Remplace chaque expression SpEL simple {@code #{bean.propriete.propriete}} dont le bean est une
+   * classe {@code @ConfigurationProperties(P)} du dépôt par {@code ${P.propriete.propriete}}, à
+   * résoudre par la configuration. Le bean est nommé par son stéréotype ({@code @Component("x")}…),
+   * sinon par le nom de la classe ({@code Config} → {@code config}). Les autres expressions restent.
+   *
+   * @param text texte, URL ou destination ; null accepté
+   * @return texte traduit ; null si {@code text} est null
+   */
+  public String spelProperties(String text) {
+    if (text == null || !text.contains("#{")) {
+      return text;
+    }
+    Matcher m = SPEL_PROPERTY.matcher(text);
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      String prefix = propertiesBeans().get(m.group(1));
+      String replacement = m.group();
+      if (prefix != null) {
+        List<String> path = new ArrayList<>();
+        for (String p : m.group(2).substring(1).split("\\.")) {
+          path.add(kebab(p));
+        }
+        replacement = "${" + prefix + "." + String.join(".", path) + "}";
+      }
+      m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+    }
+    m.appendTail(sb);
+    return sb.toString();
+  }
+
+  private Map<String, String> propertiesBeans() {
+    if (propertiesBeans == null) {
+      Map<String, String> beans = new TreeMap<>();
+      Set<String> ambiguous = new TreeSet<>();
+      for (CtType<?> t : index.all()) {
+        String prefix = configurationPrefix(t);
+        if (prefix == null) {
+          continue;
+        }
+        String name = decapitalize(t.getSimpleName());
+        CtAnnotation<?> stereotype = Annotations.findAny(t, SPRING_STEREOTYPES, "Component", "Configuration",
+            "Service", "Repository");
+        if (stereotype != null) {
+          for (CtExpression<?> e : Annotations.values(stereotype, "value")) {
+            String v = constant(e);
+            if (v != null && !v.isBlank()) {
+              name = v.strip();
+            }
+          }
+        }
+        if (beans.putIfAbsent(name, prefix) != null) {
+          ambiguous.add(name);
+        }
+      }
+      ambiguous.forEach(beans::remove);
+      propertiesBeans = beans;
+    }
+    return propertiesBeans;
+  }
+
+  /** Valeur donnée par {@link #keyedCall} si le premier argument est constant ; null sinon. */
+  private PartialString keyed(List<CtExpression<?>> args, Ctx ctx) {
+    if (keyedCall == null || args.size() < 2) {
+      return null;
+    }
+    String first = eval(args.get(0), ctx.deeper()).valueOrNull();
+    return first == null ? null : keyedCall.value(first, eval(args.get(1), ctx.deeper()));
   }
 
   private static boolean isBuilderChain(CtExpression<?> e) {

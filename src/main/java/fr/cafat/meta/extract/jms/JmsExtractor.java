@@ -579,11 +579,14 @@ public final class JmsExtractor {
     String raw = d.raw() == null ? null : d.raw().render();
     String destination = null;
     if (raw != null) {
-      Config.Resolution r = ctx.config().resolve(raw);
+      Config.Resolution r = ctx.config().resolve(ctx.eval().spelProperties(raw));
       if (r.complete() && d.raw().isComplete()) {
         destination = r.value();
       } else if (warnIfUnresolved) {
-        String missing = r.missing().isEmpty() ? "" : " (clés absentes : " + String.join(", ", r.missing()) + ")";
+        List<String> keys = r.missing().stream().filter(k -> !k.startsWith("#{")).toList();
+        List<String> spel = r.missing().stream().filter(k -> k.startsWith("#{")).toList();
+        String missing = (keys.isEmpty() ? "" : " (clés absentes : " + String.join(", ", keys) + ")")
+            + (spel.isEmpty() ? "" : " (expression SpEL non évaluée : " + String.join(", ", spel) + ")");
         ctx.diagnostics().warning("DESTINATION_UNRESOLVED", "Destination JMS non résolue : " + raw + missing
             + " dans " + caller, source);
       }

@@ -7,6 +7,7 @@ import fr.cafat.meta.config.PersistenceXmlReader;
 import fr.cafat.meta.extract.Diagnostics;
 import fr.cafat.meta.extract.ExtractionContext;
 import fr.cafat.meta.extract.PersistenceExtractor;
+import fr.cafat.meta.extract.calls.RestDependencyExtractor;
 import fr.cafat.meta.extract.entities.EntityDraft;
 import fr.cafat.meta.extract.entities.NamingStrategy;
 import fr.cafat.meta.model.Diagnostic;
@@ -145,7 +146,8 @@ public final class TestContexts {
     Provenance prov = new Provenance(root);
     CtModel model = SpoonLoader.load(java, List.of(), null, diags, prov::relative);
     TypeIndex index = new TypeIndex(model);
-    return new ExtractionContext(appId, root, model, index, new ValueEval(index), prov, diags, config,
+    ValueEval eval = new ValueEval(index, RestDependencyExtractor.keyedCall(config));
+    return new ExtractionContext(appId, root, model, index, eval, prov, diags, config,
         naming, Set.of("MGENGPP"), units, resources, webModules);
   }
 

@@ -302,12 +302,18 @@ class DatasourceResolverTest {
           public DataSource one() { return null; }
           @Bean @ConfigurationProperties("app.ds.two")
           public DataSource two() { return null; }
+          @Bean @ConfigurationProperties("app.ds.one")
+          public DataSource principaleDataSource() { return null; }
           @Bean
           public Jdbi pgJdbi(@Qualifier("two") DataSource ds) { return Jdbi.create(ds); }
           @Bean
           public fr.x.dao.Interne interne(Jdbi pgJdbi) { return pgJdbi.onDemand(fr.x.dao.Interne.class); }
           @Bean
-          public fr.x.dao.Externe externe(Jdbi db400Jdbi) { return db400Jdbi.onDemand(fr.x.dao.Externe.class); }
+          public fr.x.dao.Externe externe(Jdbi legacyJdbi) { return legacyJdbi.onDemand(fr.x.dao.Externe.class); }
+          @Bean
+          public fr.x.dao.ParType parType(Jdbi db400Jdbi) { return db400Jdbi.onDemand(fr.x.dao.ParType.class); }
+          @Bean
+          public fr.x.dao.ParBean parBean(Jdbi principaleJdbi) { return principaleJdbi.onDemand(fr.x.dao.ParBean.class); }
         }
         """,
         """
@@ -321,6 +327,20 @@ class DatasourceResolverTest {
         package fr.x.dao;
         public interface Externe {
           @org.jdbi.v3.sqlobject.statement.SqlQuery("SELECT * FROM externe")
+          java.util.List<Object> tous();
+        }
+        """,
+        """
+        package fr.x.dao;
+        public interface ParType {
+          @org.jdbi.v3.sqlobject.statement.SqlQuery("SELECT * FROM par_type")
+          java.util.List<Object> tous();
+        }
+        """,
+        """
+        package fr.x.dao;
+        public interface ParBean {
+          @org.jdbi.v3.sqlobject.statement.SqlQuery("SELECT * FROM par_bean")
           java.util.List<Object> tous();
         }
         """,
@@ -340,14 +360,17 @@ class DatasourceResolverTest {
     }
     Run r = run(TestContexts.build(base.root(), java, "app", NamingStrategy.springBoot(), new Diagnostics(),
         List.of(WebModule.ROOT), config, List.of()));
-    // Bean Jdbi du dépôt : remonté jusqu'à sa DataSource ; bean Jdbi défini ailleurs : jamais la DataSource
-    // principale ; sans fabrique visible : l'unique bean Jdbi du dépôt.
+    // Bean Jdbi du dépôt : remonté jusqu'à sa DataSource ; bean Jdbi défini ailleurs : rattaché par son nom
+    // (bean <x>DataSource du dépôt, sinon type de base : db400 → db2), jamais la DataSource principale par
+    // défaut ; sans fabrique visible : l'unique bean Jdbi du dépôt.
     assertThat(r.sql()).containsExactly(
         "fr.x.dao.Externe#tous jdbi null null.externe",
         "fr.x.dao.Interne#tous jdbi two LIB2.interne",
+        "fr.x.dao.ParBean#tous jdbi one s1.par_bean",
+        "fr.x.dao.ParType#tous jdbi two LIB2.par_type",
         "fr.x.dao.SansFabrique#tous jdbi two LIB2.sans_fabrique");
     assertThat(r.messages("DATASOURCE_AMBIGUOUS")).containsExactly(
-        "Source de données indéterminée pour le SQL de fr.x.dao.Externe#tous : bean Jdbi « db400Jdbi » défini "
+        "Source de données indéterminée pour le SQL de fr.x.dao.Externe#tous : bean Jdbi « legacyJdbi » défini "
             + "hors du dépôt (one, two)");
   }
 }
