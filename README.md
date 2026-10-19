@@ -198,6 +198,8 @@ Le nom de l'application est, dans l'ordre :
 
 Deux unités qui portent le même nom reçoivent le suffixe `-<artifactId>`.
 
+`application.description` reprend la `<description>` du pom du module principal, héritée du pom parent du dépôt comme dans Maven (un parent hors du dépôt n'est pas lu), ou la `description = '…'` du build Gradle. Les `${prop}` sont remplacées par les propriétés du pom et les espaces normalisés. Elle vaut `null` si elle est absente, si une propriété reste non résolue, ou si c'est le texte par défaut de Spring Initializr (`Demo project for Spring Boot`).
+
 Le code sous `src/test` (et `src/<autre que main>`) n'est jamais lu.
 
 Les fichiers `application*`/`bootstrap*` sont lus tels que Maven les place dans le jar : les ressources filtrées (`<filtering>true</filtering>`, ou les `application*` sous `spring-boot-starter-parent`) voient leurs jetons remplacés par les propriétés du pom, `project.*` (aussi sans préfixe : `@artifactId@`) et `parsedVersion.*` si `build-helper:parse-version` est déclaré. Sous le parent Spring Boot, seul `@cle@` est filtré ; sinon `${cle}` l'est aussi. Un jeton inconnu reste tel quel, comme dans Maven. `basedir` et les chemins absolus ne sont jamais substitués. Un jeton inconnu en début de valeur YAML (`description: @description@`, valeur héritée d'un parent hors du dépôt) rend le YAML invalide : le fichier est alors relu avec ces valeurs entre guillemets, la clé gardant le jeton comme valeur.

@@ -78,7 +78,7 @@ public final class RepoScanner {
       found = List.of();
     }
     if (found.isEmpty()) {
-      found = List.of(new Module(":", root.getFileName().toString(), null, root, "", "jar", null,
+      found = List.of(new Module(":", root.getFileName().toString(), null, null, root, "", "jar", null,
           List.of(), List.of(), false, null, ResourceFiltering.NONE));
     }
     List<Module> sorted = new ArrayList<>(found);

@@ -104,6 +104,10 @@ public final class MavenReader {
     if (version != null) {
       props.put("project.version", interpolate(version, props));
     }
+    String ownDescription = Xml.childText(project, "description");
+    if (ownDescription != null) {
+      props.put("project.description", interpolate(ownDescription, props));
+    }
     if (parent != null && Xml.childText(parent, "version") != null) {
       props.put("project.parent.version", Xml.childText(parent, "version"));
     }
@@ -135,7 +139,7 @@ public final class MavenReader {
     String relDir = relative(dir);
     Inherited own = inherit(project, parent, inherited);
     Module module = new Module((groupId == null ? "" : groupId) + ":" + artifactId, artifactId,
-        version == null ? null : interpolate(version, props), dir, relDir,
+        version == null ? null : interpolate(version, props), props.get("project.description"), dir, relDir,
         packaging == null ? "jar" : packaging, finalName, List.copyOf(deps), List.copyOf(children),
         boot, rel, filtering(project, own, props, dir));
     out.add(module);

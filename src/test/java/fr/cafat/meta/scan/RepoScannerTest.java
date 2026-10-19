@@ -48,6 +48,26 @@ class RepoScannerTest {
   }
 
   @Test
+  void descriptionMavenInterpoleeEtHeriteeDuParent(@TempDir Path repo) throws IOException {
+    write(repo, "pom.xml", pom("racine", "pom", "<description>Services sur la personne\n      physique</description>"
+        + modules("web", "batch")));
+    write(repo, "web/pom.xml", """
+        <project><parent><groupId>nc.cafat</groupId><artifactId>racine</artifactId><version>1.0</version></parent>
+        <artifactId>web</artifactId><packaging>war</packaging></project>""");
+    write(repo, "batch/pom.xml", """
+        <project><parent><groupId>nc.cafat</groupId><artifactId>racine</artifactId><version>1.0</version></parent>
+        <artifactId>batch</artifactId><properties><lot>nuit</lot></properties>
+        <description>Traitements de ${lot}</description>
+        <build><plugins><plugin><configuration><description>autre</description></configuration></plugin></plugins>
+        </build></project>""");
+
+    List<Module> modules = new RepoScanner(repo, new Diagnostics()).modules();
+
+    assertThat(modules).extracting(Module::description).containsExactly(
+        "Services sur la personne\n      physique", "Services sur la personne\n      physique", "Traitements de nuit");
+  }
+
+  @Test
   void modulesMavenMultiNiveauxEtHeritageDuParent(@TempDir Path repo) throws IOException {
     write(repo, "pom.xml", pom("racine", "pom", "<properties><socle.version>2.3</socle.version></properties>"
         + modules("services", "web")));

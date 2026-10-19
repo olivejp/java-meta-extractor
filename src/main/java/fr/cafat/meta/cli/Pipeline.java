@@ -111,6 +111,8 @@ public final class Pipeline {
   private static final Set<String> EJB = Set.of("javax.ejb", "jakarta.ejb");
   /** Suffixe de version d'un {@code spring.application.name} ({@code s-gen-geo-5.0}). */
   private static final Pattern VERSION_SUFFIX = Pattern.compile("^(.+?)-\\d+(?:\\.\\d+)+$");
+  /** Texte que Spring Initializr place dans tout projet généré : ne décrit pas l'application. */
+  private static final String INITIALIZR_DESCRIPTION = "Demo project for Spring Boot";
 
   private Pipeline() {
   }
@@ -327,7 +329,7 @@ public final class Pipeline {
         datasources);
     Module main = p.unit().main();
     String version = main.version() == null || main.version().contains("${") ? null : main.version();
-    Application app = new Application(appId, appId, version,
+    Application app = new Application(appId, appId, description(main), version,
         tech(p, index, springBoot, named.entities(), named.sql(), endpoints, messaging),
         repository, commit, main.relativeDir().isEmpty() ? null : main.relativeDir(), p.profiles(),
         contextPath(webModules), options.environment(), p.cloud(), List.copyOf(datasources.values()));
@@ -400,6 +402,18 @@ public final class Pipeline {
   }
 
   /** Chemin de contexte de l'unique module web ; null si aucun ou plusieurs. */
+  /**
+   * Description du module principal, espaces normalisés. Null si absente, si un {@code ${…}} reste
+   * non résolu, ou si c'est le texte par défaut de Spring Initializr.
+   */
+  static String description(Module main) {
+    if (main.description() == null || main.description().contains("${")) {
+      return null;
+    }
+    String text = main.description().replaceAll("\\s+", " ").strip();
+    return text.isEmpty() || INITIALIZR_DESCRIPTION.equals(text) ? null : text;
+  }
+
   private static String contextPath(List<WebModule> webModules) {
     if (webModules.size() != 1) {
       return null;

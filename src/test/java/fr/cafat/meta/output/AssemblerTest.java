@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 
 class AssemblerTest {
 
-  private static final Application APP = new Application("app", "app", "1.0", List.of("spring", "java", "jpa"),
+  private static final Application APP = new Application("app", "app", null, "1.0", List.of("spring", "java", "jpa"),
       null, "abc1234", null, List.of(), null, null, CloudConfig.notClient(),
       List.of(new Datasource("pg", "postgresql", null, null, null, "spring.datasource.pg", Source.file("a.yml", 1)),
           new Datasource("db400", "db2", null, null, null, "spring.datasource.db400", Source.file("a.yml", 5))));

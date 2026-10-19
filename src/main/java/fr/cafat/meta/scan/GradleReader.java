@@ -20,6 +20,7 @@ public final class GradleReader {
   private static final Pattern ROOT_NAME = Pattern.compile("rootProject\\.name\\s*=\\s*[\"']([^\"']+)[\"']");
   private static final Pattern VERSION = Pattern.compile("(?m)^\\s*version\\s*=\\s*[\"']([^\"']+)[\"']");
   private static final Pattern PROJECT_DEP = Pattern.compile("project\\s*\\(\\s*(?:path\\s*[:=]\\s*)?[\"']([^\"']+)[\"']");
+  private static final Pattern DESCRIPTION = Pattern.compile("(?m)^\\s*description\\s*=\\s*[\"']([^\"']+)[\"']");
   private static final Pattern ARCHIVE_NAME = Pattern.compile("archive(?:Base|File)?Name\\s*(?:\\.set\\s*\\(|=)\\s*[\"']([^\"']+)[\"']");
 
   private final Path root;
@@ -107,9 +108,11 @@ public final class GradleReader {
     }
     Matcher an = ARCHIVE_NAME.matcher(text);
     String finalName = an.find() ? an.group(1) : null;
+    Matcher desc = DESCRIPTION.matcher(text);
+    String description = desc.find() ? desc.group(1) : null;
     String rel = root.relativize(dir).toString().replace('\\', '/');
     String buildFile = Files.isRegularFile(file) ? root.relativize(file).toString().replace('\\', '/') : null;
-    return new Module(key, name, version, dir, rel, packaging, finalName, List.copyOf(deps),
+    return new Module(key, name, version, description, dir, rel, packaging, finalName, List.copyOf(deps),
         List.copyOf(children), boot, buildFile, ResourceFiltering.NONE);
   }
 

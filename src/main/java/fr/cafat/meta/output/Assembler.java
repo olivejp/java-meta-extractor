@@ -58,7 +58,7 @@ public final class Assembler {
       List<Relation> relations, List<SqlAccess> sql, List<Endpoint> endpoints, List<Call> calls,
       List<RestDependency> restDependencies, List<Messaging> messaging, List<Diagnostic> diagnostics) {
     String appId = app.id();
-    Application sortedApp = new Application(app.id(), app.name(), app.version(),
+    Application sortedApp = new Application(app.id(), app.name(), app.description(), app.version(),
         List.copyOf(new TreeSet<>(app.tech())), app.repository(), app.commit(), app.module(),
         app.profiles(), app.contextPath(), app.environment(), app.cloudConfig(),
         sorted(app.datasources(), Comparator.comparing(Datasource::id)));

@@ -7,6 +7,8 @@ import java.util.List;
  * Module de build (Maven ou Gradle).
  *
  * @param key identifiant interne (groupId:artifactId, ou chemin Gradle)
+ * @param description texte libre du build ({@code <description>} Maven, héritée du parent du dépôt ;
+ *     {@code description = …} Gradle), ou null
  * @param dir répertoire du module
  * @param relativeDir chemin relatif au dépôt ("" pour la racine)
  * @param packaging jar, war, ear, ejb, pom
@@ -19,6 +21,7 @@ public record Module(
     String key,
     String artifactId,
     String version,
+    String description,
     Path dir,
     String relativeDir,
     String packaging,

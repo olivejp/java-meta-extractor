@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["contract_version", "application", "entities", "relations", "sql_accesses", "endpoints", "calls", "rest_dependencies", "messaging", "diagnostics"],
   "properties": {
-    "contract_version": { "const": "1.2" },
+    "contract_version": { "const": "1.3" },
     "application": { "$ref": "#/$defs/application" },
     "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
     "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
@@ -57,10 +57,11 @@
     "application": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "version", "tech", "repository", "commit", "module", "profiles", "context_path", "environment", "cloud_config", "datasources"],
+      "required": ["id", "name", "description", "version", "tech", "repository", "commit", "module", "profiles", "context_path", "environment", "cloud_config", "datasources"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "name": { "type": "string", "minLength": 1 },
+        "description": { "$ref": "#/$defs/nullable_string" },
         "version": { "$ref": "#/$defs/nullable_string" },
         "tech": { "type": "array", "items": { "enum": ["spring-boot", "spring", "jboss", "ejb", "jax-rs", "jpa", "mybatis", "jms", "kotlin", "java"] } },
         "repository": { "$ref": "#/$defs/nullable_string" },

@@ -32,7 +32,7 @@ class GradleReaderTest {
         include 'commun', ':web'
         include(":services:metier")
         """);
-    write(repo, "build.gradle", "version = '3.1.0'\n");
+    write(repo, "build.gradle", "version = '3.1.0'\ndescription = 'Démonstration'\n");
     write(repo, "commun/build.gradle", "plugins { id 'java-library' }\nversion = '9.9'\n");
     write(repo, "web/build.gradle", """
         plugins { id 'war' }
@@ -48,6 +48,7 @@ class GradleReaderTest {
     assertThat(modules).extracting(Module::key).containsExactly(":", ":commun", ":web", ":services:metier");
     assertThat(modules).extracting(Module::artifactId).containsExactly("s-gen-demo", "commun", "web", "metier");
     assertThat(modules).extracting(Module::version).containsExactly("3.1.0", "9.9", "3.1.0", "3.1.0");
+    assertThat(modules).extracting(Module::description).containsExactly("Démonstration", null, null, null);
     assertThat(modules.get(0).children()).containsExactly(":commun", ":web", ":services:metier");
     Module web = modules.get(2);
     assertThat(web.packaging()).isEqualTo("war");
