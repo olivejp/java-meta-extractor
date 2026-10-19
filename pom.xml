@@ -6,7 +6,7 @@
 
   <groupId>fr.cafat</groupId>
   <artifactId>java-meta-extractor</artifactId>
-  <version>0.2.3-SNAPSHOT</version>
+  <version>0.3.0</version>
   <packaging>jar</packaging>
   <name>java-meta-extractor</name>
   <description>Extracteur déterministe de métadonnées (données, SQL, REST, JMS) d'applications Java/Kotlin</description>
